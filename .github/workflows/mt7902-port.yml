@@ -45,8 +45,8 @@ jobs:
         run: |
           mkdir -p out
           {
-            bash tools/build-mac.sh
-            bash tools/build-menu7902.sh
+            bash tools/build-mac.sh &&
+            bash tools/build-menu7902.sh &&
             bash tools/mtkwifi/build.sh
           } > out/compile.log 2>&1 || { tail -120 out/compile.log; exit 1; }
       - name: Check architecture and package both chips' embedded firmware

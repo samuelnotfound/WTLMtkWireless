@@ -153,7 +153,7 @@ bool MtkWlan::start(IOService *provider) {
     // Ethernet front end if it declines or stays away); boot-arg mtkfe=native|ethernet overrides the plist
     if (OSString *feStr = OSDynamicCast(OSString, getProperty("MtkFrontEnd"))) feNativeWanted = feStr->isEqualTo("native");
     char feArg[16] = {};
-    if (PE_parse_boot_arg_str("mtkfe", feArg, sizeof(feArg))) feNativeWanted = !strcmp(feArg, "native");
+    if (PE_parse_boot_argn("mtkfe", feArg, sizeof(feArg))) feNativeWanted = !strcmp(feArg, "native");
     OSNumber *rate = OSDynamicCast(OSNumber, getProperty("MtkDataRate"));
     if (rate && rate->unsigned32BitValue() >= 18 && rate->unsigned32BitValue() <= 25) dataRate = (uint8_t)rate->unsigned8BitValue();
     OSBoolean *pwr = OSDynamicCast(OSBoolean, getProperty("MtkPower"));
