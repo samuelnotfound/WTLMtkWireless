@@ -5,7 +5,7 @@
 #   make SDK=/path/to/MacKernelSDK
 NAME         := MtkWlan
 KEXT_ID      := org.watchthelight.MtkWlan
-KEXT_VERSION := 0.12.1
+KEXT_VERSION := 0.13.0
 
 SDK    ?= $(CURDIR)/MacKernelSDK
 LD     := LD_LIBRARY_PATH=/opt/dispatch/lib /opt/cctools/bin/x86_64-apple-darwin-ld
@@ -16,10 +16,17 @@ RES    := $(shell clang -print-resource-dir)/include
 
 SRCS := src/MtkWlan.cpp src/MtkRegs.cpp src/MtkDma.cpp src/MtkFw.cpp src/MtkScan.cpp src/MtkJoin.cpp src/MtkSec.cpp \
         src/MtkNet.cpp src/MtkBa.cpp src/MtkPower.cpp src/MtkWlanEth.cpp src/MtkUserClient.cpp \
-        src/MtkCrypto.c src/MtkSupp.c src/MtkSuper.c out/gen/MtkFirmware.c
+        src/MtkCrypto.c src/MtkSupp.c src/MtkSuper.c out/gen/MtkFirmware.c \
+        experimental/MT7902Port/src/itlmt7902.cpp experimental/MT7902Port/src/itlmt7902_m1.cpp experimental/MT7902Port/src/itlmt7902_m2.cpp \
+        experimental/MT7902Port/src/itlmt7902_m3.cpp experimental/MT7902Port/src/itlmt7902_txrx.cpp experimental/MT7902Port/src/itlmt7902_pwr.cpp \
+        experimental/MT7902Port/src/itlmt7902_ctl.cpp experimental/MT7902Port/src/itlmt7902_eth.cpp experimental/MT7902Port/src/itlmt7902_ba.cpp \
+        experimental/MT7902Port/src/itlmt7902_uc.cpp experimental/MT7902Port/src/itl_wpa.cpp experimental/MT7902Port/src/itl_caps.cpp \
+        experimental/MT7902Port/src/itl_ba.cpp experimental/MT7902Port/codec/mt7902_ba_codec.cpp experimental/MT7902Port/codec/mt7902_data_codec.cpp \
+        experimental/MT7902Port/codec/mt7902_join_codec.cpp experimental/MT7902Port/codec/mt7902_rx_codec.cpp experimental/MT7902Port/codec/mt7902_scan_codec.cpp \
+        experimental/MT7902Port/codec/mt7902_tx_codec.cpp src/Mtk7902Backend.cpp src/Mtk7902Firmware.c
 
 KFLAGS := $(TARGET) -mkernel -fapple-kext -nostdinc -fno-builtin -fno-common -fno-stack-protector \
-          -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT \
+          -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT -DMTK_WITH_MT7902 \
           -isystem $(RES) -I$(SDK)/Headers -Isrc -O2 -g0 -Wall -Wno-unused-parameter
 CFLAGS   += $(KFLAGS) -std=gnu11
 # the last three flags keep clang from emitting __cxa_atexit, which the kernel does not export
@@ -33,6 +40,14 @@ BIN  := out/$(NAME).kext/Contents/MacOS/$(NAME)
 all: $(BIN) out/$(NAME).kext/Contents/Info.plist check
 
 out/obj/%.cpp.o: src/%.cpp src/*.hpp src/*.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+out/obj/%.cpp.o: experimental/MT7902Port/src/%.cpp experimental/MT7902Port/src/*.h experimental/MT7902Port/src/*.hpp src/Mtk7902Backend.hpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+out/obj/%.cpp.o: experimental/MT7902Port/codec/%.cpp experimental/MT7902Port/codec/*.h
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 

@@ -1,5 +1,16 @@
 # Notices and sources
 
+## MT7902 integration in this fork
+
+`experimental/MT7902Port` is imported from samuelnotfound/itlwm commit
+`a4869dfc513f1a4ac2bc802657ba1854ad4aaaa8`, derived from hbyonly1/itlmt7922-wifi
+and the BSD-3-Clause-Clear mt76 revision documented in its NOTICE.md. It retains
+its BSD-3-Clause-Clear LICENSE, notices and MediaTek firmware distribution terms.
+`src/Mtk7902Backend.*`, `src/Mtk7902Protocol.h`, `src/Mtk7902Firmware.c`, the menu
+build and integration packaging code use BSD-3-Clause-Clear as marked in those
+files. The existing ISC MtkWlan code and MT7925 notices remain in force. Both sets
+of notices are included in the integrated binary package.
+
 ## Code this repository is derived from
 
 ### Linux mt76 (ISC)

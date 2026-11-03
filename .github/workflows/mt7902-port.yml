@@ -1,0 +1,70 @@
+name: MtkWlan MT7902 integration
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/mt7902-port']
+permissions:
+  contents: read
+concurrency:
+  group: mtk7902-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify MT7902 firmware and standalone metadata
+        run: python3 experimental/MT7902Port/scripts/check-release.py
+      - name: Test Mtk supplicant and supervisor
+        run: bash tests/run.sh
+      - name: Test Connac2 protocol codecs and inherited supplicant
+        env:
+          CXX: clang++
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: bash experimental/MT7902Port/tests/run_all.sh
+      - name: Test Mtk API translation and menu ABI
+        run: |
+          clang++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined tests/mt7902_adapter_test.cpp -o out/mt7902_adapter_test
+          out/mt7902_adapter_test
+  macos-build:
+    needs: host-tests
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          ref: 3f750085caa17ec3a7880f11c11bf4f48cd6a164
+          path: MacKernelSDK
+      - name: Build unified MtkWlan kext, Mtk menu and mtkwifi
+        env:
+          MACKERNELSDK: ${{ github.workspace }}/MacKernelSDK
+        run: |
+          mkdir -p out
+          {
+            bash tools/build-mac.sh
+            bash tools/build-menu7902.sh
+            bash tools/mtkwifi/build.sh
+          } > out/compile.log 2>&1 || { tail -120 out/compile.log; exit 1; }
+      - name: Check architecture and package both chips' embedded firmware
+        run: |
+          lipo out/MtkWlan.kext/Contents/MacOS/MtkWlan -verify_arch x86_64
+          lipo out/MtkWiFi7902.app/Contents/MacOS/MtkWiFi7902 -verify_arch x86_64
+          python3 tools/package-mt7902.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MtkWlan-MT7902-integrated
+          path: out/dist/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MtkWlan-MT7902-build-log
+          path: |
+            out/compile.log
+            out/undefined.txt
+            out/libraries.*
+          if-no-files-found: ignore

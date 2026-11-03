@@ -27,6 +27,7 @@
 // header and PN. The ops table v2 adds scan / results / join / disconnect / status for a native front end.
 
 #include "MtkWlan.hpp"
+#include "Mtk7902Backend.hpp"
 #include "MtkCrypto.h"
 #include <kern/clock.h>
 
@@ -355,7 +356,9 @@ void MtkWlan::reportLink() {
     bool up = linkUp && portOpen && ifEnabled;
     if (up == linkReported) return;
     linkReported = up;
-    fe.link(fe.ctx, up, up ? LINK_SPEED : 0);
+    mtk_status s = {};
+    if (mt7902) mt7902->snapshot(&s);
+    fe.link(fe.ctx, up, up ? (mt7902 ? s.speed : LINK_SPEED) : 0);
 }
 
 void MtkWlan::keepalive(bool status) {
@@ -465,6 +468,7 @@ void MtkWlan::timerFired(OSObject *owner, IOTimerEventSource *) {
 }
 
 void MtkWlan::tick() {
+    if (mt7902) { mt7902->tick(); return; }
     timer->setTimeoutUS(TICK_US);               // first, so nothing below can stop the clock
     ticks++;
     pollRx();
@@ -716,6 +720,10 @@ const mtk_core_ops_v5 MtkWlan::kOpsV5 = {
 
 IOReturn MtkWlan::callPlatformFunction(const OSSymbol *functionName, bool waitForFunction, void *param1, void *param2,
                                        void *param3, void *param4) {
+    // v3+ requires native BSS/private MAC/country handling not implemented by the Connac2 backend.
+    // Refuse those versions explicitly; never route an unsupported op into Connac3 hardware code.
+    if (mt7902 && functionName && !functionName->isEqualTo(MTK_CORE_OPS_V1) && !functionName->isEqualTo(MTK_CORE_OPS_V2))
+        return kIOReturnUnsupported;
     if (functionName && functionName->isEqualTo(MTK_CORE_OPS_V1)) {
         if (!param1 || !param2) return kIOReturnBadArgument;
         *(const mtk_core_ops **)param1 = &kOps;
@@ -833,6 +841,7 @@ int MtkWlan::opTxBytes(void *core, const uint8_t *frame, uint32_t len) {
 // v4 (gate held by the caller): the station address the front end was given (macOS's private address per network)
 int MtkWlan::opSetMac(void *core, const uint8_t m[6]) { return static_cast<MtkWlan *>(core)->coreSetMac(m); }
 int MtkWlan::coreSetMac(const uint8_t m[6]) {
+    if (mt7902) return -2;
     if (!m || (m[0] & 1) || !(m[0] | m[1] | m[2] | m[3] | m[4] | m[5])) return -1;
     if (!memcmp(mac, m, 6)) return 0;
     if (joinState) joinTeardown(3);                 // reason 3, leaving; the manager rejoins the wanted network with the new address
@@ -975,6 +984,13 @@ int MtkWlan::opGetMac(void *core, uint8_t out[6]) {
 int MtkWlan::opGetLinkInfo(void *core, mtk_link_info *out) {
     MtkWlan *self = static_cast<MtkWlan *>(core);
     bzero(out, sizeof(*out));
+    if (self->mt7902) {
+        mtk_status s; self->mt7902->snapshot(&s);
+        out->up = s.link_up; out->enabled = self->ifEnabled; out->speed = s.speed;
+        memcpy(out->bssid, s.bssid, 6); memcpy(out->ssid, s.ssid, sizeof(out->ssid));
+        out->channel = out->center = s.channel; out->nss = 1;
+        return 0;
+    }
     out->up = self->linkUp;
     out->enabled = self->ifEnabled;
     memcpy(out->bssid, self->tgtBssid, 6);
@@ -1009,6 +1025,13 @@ int MtkWlan::opStatus(void *core, mtk_status *out) {
 // The 0.7.0 outputPacket; the front end frees m unless the result is MTK_TX_STALL. Nothing leaves before the
 // port is open; once the PTK is installed every frame goes out protected (hardware CCMP).
 int MtkWlan::txEthernet(mbuf_t m) {
+    if (mt7902) {
+        size_t n = mbuf_pkthdr_len(m);
+        if (!ifEnabled || n < 14 || n > 1514) return MTK_TX_DROPPED;
+        uint8_t frame[1514];
+        if (mbuf_copydata(m, 0, n, frame)) return MTK_TX_DROPPED;
+        return mt7902->transmit(frame, (uint32_t)n);
+    }
     uint32_t len = (uint32_t)mbuf_pkthdr_len(m);
     if (len < 14 || len > 1514) { txDrop++; return MTK_TX_DROPPED; }
     uint8_t eh[14];
@@ -1018,6 +1041,7 @@ int MtkWlan::txEthernet(mbuf_t m) {
 
 // 0.10.0: the same frame as bytes (the native front end hands the Skywalk packet's buffer straight in)
 int MtkWlan::txEthernetBytes(const uint8_t *frame, uint32_t len) {
+    if (mt7902) return ifEnabled ? mt7902->transmit(frame, len) : MTK_TX_DROPPED;
     if (!frame || len < 14 || len > 1514) { txDrop++; return MTK_TX_DROPPED; }
     return txFrame(frame, len, nullptr, frame);
 }

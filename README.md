@@ -1,5 +1,9 @@
 # WTLMtkWireless: MediaTek MT7925 Wi-Fi driver for macOS Hackintosh
 
+This fork's `codex/mt7902-port` branch also contains an **experimental MT7902
+MtkWlan integration**. Read [MT7902 installation, architecture and limits](docs/MT7902.md)
+for that build. The MT7925 performance/native-menu claims below do not apply to MT7902.
+
 Renamed from `mt7925-hackintosh-wifi` on 2026-10-31; the kext is still `MtkWlan.kext`, so existing OpenCore configs keep working. Old links redirect here.
 
 Wi-Fi for the MediaTek MT7925 (Filogic 360, Wi-Fi 7, PCI `14C3:7925`, also the AMD RZ717 `14C3:0717`) on a

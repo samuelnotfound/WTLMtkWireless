@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.12.1</string>
+	<string>0.13.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>0.12.1</string>
+	<string>0.13.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MT7925 PCIe</key>
@@ -56,6 +56,23 @@
 			<key>MtkStallSec</key>
 			<integer>8</integer>
 			<key>MtkTxBa</key>
+			<true/>
+		</dict>
+		<key>MT7902 PCIe</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>org.watchthelight.MtkWlan</string>
+			<key>IOClass</key>
+			<string>MtkWlan</string>
+			<key>IOPCIPrimaryMatch</key>
+			<string>0x790214c3</string>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+			<key>IOUserClientClass</key>
+			<string>MtkWlanUserClient</string>
+			<key>MtkFrontEnd</key>
+			<string>ethernet</string>
+			<key>MtkAllowConsoleControl</key>
 			<true/>
 		</dict>
 	</dict>

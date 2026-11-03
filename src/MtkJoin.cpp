@@ -15,6 +15,7 @@
 // never issues firmware commands; everything here runs on the tick or the bring-up thread.
 
 #include "MtkWlan.hpp"
+#include "Mtk7902Backend.hpp"
 #include "MtkCrypto.h"
 
 namespace {
@@ -826,6 +827,7 @@ void MtkWlan::cmService() {
 
 // These only set flags and copy data; the tick does the firmware work, so the caller never sleeps in uniCmd.
 int MtkWlan::coreScan() {
+    if (mt7902) return mt7902->scan();
     if (fwDead || !timer) return -2;
     scanWanted = true;
     userScanPending = true;
@@ -833,6 +835,7 @@ int MtkWlan::coreScan() {
 }
 
 int MtkWlan::coreJoin(const mtk_join_params *p) {
+    if (mt7902) return mt7902->join(p);
     if (!p || p->version != MTK_USER_API_VERSION || p->ssid_len < 1 || p->ssid_len > 32) return -1;
     if (p->key_type != MTK_KEY_NONE && p->key_type != MTK_KEY_PMK) return -1;
     if (fwDead || !timer) return -2;
@@ -865,6 +868,7 @@ int MtkWlan::coreJoin(const mtk_join_params *p) {
 }
 
 int MtkWlan::coreDisconnect() {
+    if (mt7902) return mt7902->disconnect();
     disconnectPending = true;
     wantActive = false;
     wantHasPmk = false;
@@ -875,6 +879,7 @@ int MtkWlan::coreDisconnect() {
 }
 
 void MtkWlan::coreStatus(mtk_status *out) {
+    if (mt7902) { mt7902->snapshot(out); return; }
     bzero(out, sizeof(*out));
     out->version = MTK_USER_API_VERSION;
     if (joinState == 5) out->state = MTK_ST_CONNECTED;
@@ -916,6 +921,7 @@ void MtkWlan::coreStatus(mtk_status *out) {
 
 // Copy up to max cache entries, best first
 uint32_t MtkWlan::coreResults(mtk_scan_result *out, uint32_t max) {
+    if (mt7902) return mt7902->getResults(out, max);
     bool used[MTK_BSS_CACHE] = {};
     uint32_t n = 0;
     while (n < max && (int)n < nBss) {
@@ -948,6 +954,7 @@ uint32_t MtkWlan::coreResults(mtk_scan_result *out, uint32_t max) {
 
 // The cached BSS at index in best-first order (as coreResults), with its elements
 int MtkWlan::coreGetBss(uint32_t index, mtk_bss_info *out) {
+    if (mt7902) return -1;
     if (!out || (int)index >= nBss) return -1;
     bool used[MTK_BSS_CACHE] = {};
     int best = -1;
@@ -1015,6 +1022,7 @@ IOReturn MtkWlan::gatedUserCall(OSObject *owner, void *sel, void *in, void *out,
         *osz = sizeof(mtk_status);
         return kIOReturnSuccess;
     case kMtkUcTune: {
+        if (self->mt7902) return kIOReturnUnsupported;
         const uint32_t *kv = static_cast<const uint32_t *>(in);
         if (!kv || kv[1] > 1000) return kIOReturnBadArgument;
         if (kv[0] == MTK_TUNE_TX_INFLIGHT_BA) self->txCapBa = kv[1] ? (kv[1] < 8 ? 8 : kv[1]) : 128;

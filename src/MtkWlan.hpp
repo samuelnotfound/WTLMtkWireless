@@ -70,6 +70,7 @@ struct MtkBss {
     uint8_t ie[512];                           // information elements after the fixed fields (same cap as tgtIe)
 };
 
+struct Mtk7902Backend;
 class MtkWlan : public IOService {
     OSDeclareDefaultStructors(MtkWlan)
 
@@ -95,6 +96,8 @@ public:
     bool pollMsec(uint32_t reg, uint32_t mask, uint32_t val, int timeoutMs, int tickMs);
 
 private:
+    friend struct Mtk7902Backend;
+    Mtk7902Backend *mt7902 = nullptr;
     uint32_t rawRead(uint32_t off);
     void rawWrite(uint32_t off, uint32_t val);
     uint32_t rawRmw(uint32_t off, uint32_t mask, uint32_t val);
@@ -212,6 +215,7 @@ public:
     // the user client (MtkUserClient.cpp) runs these on the gate through runAction
     static IOReturn gatedUserCall(OSObject *owner, void *selector, void *in, void *out, void *outSize);
     bool userClientAllowed() const { return workLoop != nullptr && timer != nullptr; }
+    bool consoleControlAllowed() const { return mt7902 != nullptr && getProperty("MtkAllowConsoleControl") == kOSBooleanTrue; }
 private:
 
     // MtkNet.cpp: W6 data path and the front-end side of the ops table

@@ -23,6 +23,7 @@ bool MtkWlanUserClient::initWithTask(task_t owningTask, void *securityID, UInt32
     if (!owningTask || !IOUserClient::initWithTask(owningTask, securityID, type, properties)) return false;
     task = owningTask;
     admin = clientHasPrivilege(securityID, kIOClientPrivilegeAdministrator) == kIOReturnSuccess;
+    consoleUser = clientHasPrivilege(securityID, kIOClientPrivilegeLocalUser) == kIOReturnSuccess;
     return true;
 }
 
@@ -55,7 +56,9 @@ IOReturn MtkWlanUserClient::externalMethod(uint32_t selector, IOExternalMethodAr
 // Run one selector on the core's gate. Scan / join / disconnect change state and need an administrator.
 IOReturn MtkWlanUserClient::call(uint32_t selector, const void *in, void *out, uint32_t *outSize) {
     if (!core || !core->userClientAllowed()) return kIOReturnNotReady;
-    if ((selector == kMtkUcScan || selector == kMtkUcJoin || selector == kMtkUcDisconnect || selector == kMtkUcTune) && !admin) return kIOReturnNotPrivileged;
+    if (selector == kMtkUcTune && !admin) return kIOReturnNotPrivileged;
+    if ((selector == kMtkUcScan || selector == kMtkUcJoin || selector == kMtkUcDisconnect) &&
+        !admin && !(consoleUser && core->consoleControlAllowed())) return kIOReturnNotPrivileged;
     IOWorkLoop *wl = core->getWorkLoop();
     if (!wl) return kIOReturnNotReady;
     return wl->runAction(&MtkWlan::gatedUserCall, core, (void *)(uintptr_t)selector, const_cast<void *>(in), out, outSize);

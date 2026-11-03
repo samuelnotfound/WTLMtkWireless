@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>Kernel</key><dict><key>Add</key><array><dict>
+<key>Arch</key><string>x86_64</string>
+<key>BundlePath</key><string>itlmt7902.kext</string>
+<key>Comment</key><string>MT7902 0.1.1 passive scan only; disable MT7902PCI.kext</string>
+<key>Enabled</key><true/>
+<key>ExecutablePath</key><string>Contents/MacOS/itlmt7902</string>
+<key>MaxKernel</key><string>25.99.99</string>
+<key>MinKernel</key><string>25.0.0</string>
+<key>PlistPath</key><string>Contents/Info.plist</string>
+</dict></array></dict></dict></plist>

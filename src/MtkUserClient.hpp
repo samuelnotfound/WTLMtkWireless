@@ -35,6 +35,7 @@ private:
     MtkWlan *core = nullptr;
     task_t task = nullptr;
     bool admin = false;
+    bool consoleUser = false;
 };
 
 #endif

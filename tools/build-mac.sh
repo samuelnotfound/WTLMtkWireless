@@ -15,7 +15,8 @@ KEXT_VERSION=$($PB -c 'Print :CFBundleVersion' Info.plist)
 grep -q "KEXT_VERSION := $KEXT_VERSION\$" Makefile || { echo "FAIL: Makefile KEXT_VERSION differs from Info.plist $KEXT_VERSION"; exit 1; }
 
 SDK=$(xcrun --sdk macosx --show-sdk-path)
-K=$SDK/System/Library/Frameworks/Kernel.framework/Headers
+K=${MACKERNELSDK:+$MACKERNELSDK/Headers}
+K=${K:-$SDK/System/Library/Frameworks/Kernel.framework/Headers}
 RES=$(clang -print-resource-dir)
 OUT=out/$NAME.kext/Contents
 rm -rf out/$NAME.kext out/obj
@@ -26,7 +27,7 @@ python3 tools/gen_firmware.py out/gen/MtkFirmware.c
 
 # the SDK marks IOPCIDevice and IOEthernet* deprecated (DriverKit); MacKernelSDK in the Linux build does not
 FLAGS="-arch x86_64 -mmacosx-version-min=10.15 -mkernel -nostdinc -fno-builtin -fno-common -fno-stack-protector
- -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT -isystem $RES/include -I$K -Isrc -O2 -g0 -Wall -Wno-unused-parameter
+ -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT -DMTK_WITH_MT7902 -isystem $RES/include -I$K -Isrc -O2 -g0 -Wall -Wno-unused-parameter
  -Wno-deprecated-declarations"
 CXXFLAGS="$FLAGS -fapple-kext -std=gnu++17 -nostdinc++ -fno-exceptions -fno-rtti -fno-use-cxa-atexit
  -fno-register-global-dtors-with-atexit -Wno-inconsistent-missing-override"
@@ -44,7 +45,7 @@ clang $FLAGS -std=gnu11 -DKEXT_ID=$KEXT_ID -DKEXT_VERSION="\"$KEXT_VERSION\"" \
 # the SDK's libkmod objects say macOS 15.5, which ld notes against the 10.15 minimum (harmless)
 clang++ -arch x86_64 -mmacosx-version-min=10.15 -nostdlib -Xlinker -kext -Xlinker -export_dynamic \
   $OBJS out/obj/kmod_info.o -L"$SDK/usr/lib" -lkmodc++ -lkmod "$RES/lib/darwin/libclang_rt.cc_kext.a" \
-  -o "$OUT/MacOS/$NAME" 2>&1 | grep -v 'was built for newer macOS version' >&2 || true
+  -o "$OUT/MacOS/$NAME"
 [ -f "$OUT/MacOS/$NAME" ] || { echo "FAIL: link"; exit 1; }
 cp Info.plist "$OUT/Info.plist"
 

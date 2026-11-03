@@ -11,6 +11,7 @@
 // (Info.plist) lists the open networks it may join on its own; everything else comes through the user client.
 
 #include "MtkWlan.hpp"
+#include "Mtk7902Backend.hpp"
 #include "MtkCrypto.h"
 #include <pexpert/pexpert.h>
 #include <IOKit/IOMessage.h>
@@ -96,6 +97,25 @@ bool MtkWlan::start(IOService *provider) {
     // IONetworkingFamily takes the interface's IOBuiltin from the controller's provider, which is now this
     // core and no longer the PCI device: carry the device's "built-in" over so en1 stays built-in
     if (OSObject *builtin = pci->getProperty("built-in")) setProperty("built-in", builtin);
+    if (pci->configRead16(kIOPCIConfigVendorID) == 0x14c3 &&
+        pci->configRead16(kIOPCIConfigDeviceID) == 0x7902) {
+        // Dispatch before touching any Connac3 registers, DMA, firmware or power state.
+        mt7902 = Mtk7902Backend::create(this);
+        if (!mt7902 || !mt7902->start(this)) { step("MT7902 backend failed to start"); return true; }
+        setProperty("MtkChip", "MT7902 Connac2");
+        setProperty("MtkFrontEndWanted", "ethernet");
+        setProperty("Mtk7902BackendVersion", "itlmt7902 0.2.12 / Mtk API v2");
+        // Interface creation must run off the gate and after the firmware station MAC is available.
+        feFallbackCall = thread_call_allocate(&MtkWlan::feFallbackThread, this);
+        timer = IOTimerEventSource::timerEventSource(this, &MtkWlan::timerFired);
+        if (!feFallbackCall || !timer || workLoop->addEventSource(timer) != kIOReturnSuccess) {
+            mt7902->stop(); step("MT7902 work loop setup failed"); return true;
+        }
+        timer->setTimeoutMS(5);
+        step("MT7902 firmware worker starting; waiting for station MAC");
+        registerService();
+        return true;
+    }
     // open networks the connection manager may join by itself (SSID prefixes); none = never
     if (OSArray *list = OSDynamicCast(OSArray, getProperty("MtkAutoOpenSsids"))) {
         for (unsigned i = 0; i < list->getCount() && nAutoOpenSsids < 4; i++) {
@@ -223,6 +243,11 @@ IOReturn MtkWlan::setPowerState(unsigned long state, IOService *device) {
 
 // On the gate, so no tick or front-end call touches the chip while it is being reset
 void MtkWlan::systemWillShutdown(IOOptionBits specifier) {
+    if (mt7902) {
+        if (specifier == kIOMessageSystemWillPowerOff || specifier == kIOMessageSystemWillRestart) mt7902->stop();
+        IOService::systemWillShutdown(specifier);
+        return;
+    }
     if (specifier == kIOMessageSystemWillPowerOff || specifier == kIOMessageSystemWillRestart) {
         const char *why = specifier == kIOMessageSystemWillRestart ? "restart" : "power off";
         if (workLoop)
@@ -237,6 +262,14 @@ void MtkWlan::systemWillShutdown(IOOptionBits specifier) {
 }
 
 void MtkWlan::stop(IOService *provider) {
+    if (mt7902) {
+        if (timer) { timer->cancelTimeout(); if (workLoop) workLoop->removeEventSource(timer); OSSafeReleaseNULL(timer); }
+        if (feFallbackCall) thread_call_cancel_wait(feFallbackCall);
+        mt7902->stop();
+        OSSafeReleaseNULL(pci);
+        IOService::stop(provider);
+        return;
+    }
     if (pmJoined) {
         PMstop();
         pmJoined = false;
@@ -273,6 +306,7 @@ void MtkWlan::free() {
         feFallbackCall = nullptr;
     }
     OSSafeReleaseNULL(frontEnd);
+    if (mt7902) { mt7902->destroy(); mt7902 = nullptr; }
     OSSafeReleaseNULL(workLoop);
     IOService::free();
 }
