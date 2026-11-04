@@ -2,8 +2,9 @@
 
 ## MT7902 integration in this fork
 
-`experimental/MT7902Port` is imported from samuelnotfound/itlwm commit
-`a4869dfc513f1a4ac2bc802657ba1854ad4aaaa8`, derived from hbyonly1/itlmt7922-wifi
+`experimental/MT7902Port` derives from hbyonly1/itlmt7922-wifi, itself based on
+thanhnndev and contributors' MediaTek driver. Our MT7902 snapshot is commit
+`a4869dfc513f1a4ac2bc802657ba1854ad4aaaa8`. No Intel itlwm driver code is included.
 and the BSD-3-Clause-Clear mt76 revision documented in its NOTICE.md. It retains
 its BSD-3-Clause-Clear LICENSE, notices and MediaTek firmware distribution terms.
 `src/Mtk7902Backend.*`, `src/Mtk7902Protocol.h`, `src/Mtk7902Firmware.c`, the menu
@@ -13,10 +14,11 @@ of notices are included in the integrated binary package.
 
 `native/WTLWifiMenu` is vendored from watchthelight-labs/WTLWifiMenu commit
 `a768120b0477930357289dcdfed45a34ec60673d` (0.4.15), under its existing ISC and
-file-specific BSD-3-Clause-Clear notices. This fork builds it as 0.4.16, enables
+file-specific BSD-3-Clause-Clear notices. This fork builds it as 0.4.17, enables
 the native interface by default, reports the core's chip name, and limits extended
 BSS HT/VHT reporting to the negotiated capabilities, and respects an explicit
-Ethernet frontend choice. Its Apple ABI allowlist is
+Ethernet frontend choice. Private MAC changes use the MT7902 queued extension,
+with joins held until firmware confirmation. Its Apple ABI allowlist is
 unchanged: 25G241 and 25G332 only. The native source's LICENSE, NOTICE.md and
 LICENSES directory ship with the binary package.
 
@@ -79,8 +81,6 @@ d5455717ead0), unmodified and redistributable under `LICENSES/LICENCE.mediatek`.
 under ISC. The build embeds them in the kext.
 
 ## Design references (no code copied)
-- **itlwm** (https://github.com/OpenIntelWireless/itlwm, GPL-2.0): the idea of a Wi-Fi kext that
-  shows up as a plain Ethernet device and does its own 802.11 handling instead of using IO80211Family.
 - **RealtekRTL8111** by Laura Müller (Mieze) (https://github.com/Mieze/RealtekRTL8111-OSX): the usual
   shape of an open-source IOEthernetController kext (own work loop, gated output queue, medium
   dictionary, link status), which `src/MtkWlanEth.cpp` follows.

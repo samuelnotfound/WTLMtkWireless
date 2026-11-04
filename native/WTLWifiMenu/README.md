@@ -135,7 +135,7 @@ undefined symbol is exported by the running kernel collection (`tools/kcabi/link
   thanhnndev and contributors): the shape of a native front end for a MediaTek core on macOS 15, the interface start
   sequence, the join event sequence and several payload layouts, re-read against the 25G241 binaries here. See
   `NOTICE.md`.
-- [AirportMtkWlan](https://github.com/mnnobre/AirportMtkWlan) and laobamac's itlwm / SimpleMtkWlan (GPL-2.0): read as
+- [AirportMtkWlan](https://github.com/mnnobre/AirportMtkWlan) and SimpleMtkWlan (GPL-2.0): read as
   references for what macOS expects of a Wi-Fi driver; no code from them is in this repository.
 - [qwz-macos](https://github.com/f0xeri/qwz-macos) (GPL-2.0, f0xeri): an independent native front end on 25G241 for a
   Qualcomm WCN7850 core; its current-channel width flags and its power-state replay after wake were read as references;

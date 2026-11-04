@@ -21,8 +21,8 @@ inherited BSD driver build embeds these images with assembly `.incbin`; they are
 not re-licensed as GPL firmware. Release packages carry their license and hashes.
 
 MacKernelSDK is pinned to `3f750085caa17ec3a7880f11c11bf4f48cd6a164` and is
-obtained separately. This folder is separately licensed from the enclosing Intel
-itlwm repository. No GPL code from the earlier diagnostic starter is copied here.
+obtained separately. This MediaTek driver subtree is licensed under Clear BSD;
+no Intel driver code or GPL code from the earlier diagnostic starter is included.
 
 Keep the source copyright notices, this file, LICENSE, and the firmware and
 third-party license files with redistributed source and binaries.

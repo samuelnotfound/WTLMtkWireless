@@ -55,6 +55,8 @@ manifest = {'version': version, 'source_commit': subprocess.check_output(['git',
             'native_source_commit': 'a768120b0477930357289dcdfed45a34ec60673d', 'native_abi_builds': ['25G241', '25G332'],
             'hardware_validated_integrated_build': False,
             'backend_source_commit': 'a4869dfc513f1a4ac2bc802657ba1854ad4aaaa8',
+            'backend_snapshot_repository': 'https://github.com/samuelnotfound/itlwm',
+            'backend_snapshot_note': 'MediaTek subtree hosting location; no Intel itlwm driver sources used',
             'binary_sha256': hashlib.sha256(binary).hexdigest()}
 (package / 'build-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 archive = dist / f'{package.name}.zip'
