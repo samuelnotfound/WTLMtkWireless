@@ -65,6 +65,7 @@ void nativeCallFree() {
 
 void nativeCall(IORegistryEntry *e, char kind, uint32_t id) {
     if (!gCalls || !gLock) return;
+    OSString *snapshot = nullptr;
     IOLockLock(gLock);
     uint32_t i = 0;
     for (; i < gCallN; i++)
@@ -86,7 +87,9 @@ void nativeCall(IORegistryEntry *e, char kind, uint32_t id) {
         for (uint32_t j = 0; j < gCallN && k + 24 < kCallText; j++)
             k += (size_t)snprintf(gCallText + k, kCallText - k, "%s%c:%x=%u", j ? " " : "", gCalls[j].kind, gCalls[j].id, gCalls[j].count);
         if (gCallOverflow && k + 24 < kCallText) snprintf(gCallText + k, kCallText - k, " overflow=%u", gCallOverflow);
-        e->setProperty("MtkNativeCalls", gCallText);
+        snapshot = OSString::withCString(gCallText);
     }
     IOLockUnlock(gLock);
+    // IORegistry publication is virtual/external code: do not enter it with the trace mutex held.
+    if (snapshot) { e->setProperty("MtkNativeCalls", snapshot); snapshot->release(); }
 }
