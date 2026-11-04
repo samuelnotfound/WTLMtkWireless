@@ -954,7 +954,7 @@ uint32_t MtkWlan::coreResults(mtk_scan_result *out, uint32_t max) {
 
 // The cached BSS at index in best-first order (as coreResults), with its elements
 int MtkWlan::coreGetBss(uint32_t index, mtk_bss_info *out) {
-    if (mt7902) return -1;
+    if (mt7902) return mt7902->getBss(index, out);
     if (!out || (int)index >= nBss) return -1;
     bool used[MTK_BSS_CACHE] = {};
     int best = -1;

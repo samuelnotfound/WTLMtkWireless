@@ -57,6 +57,10 @@ void itlmt7902::m3Publish(const char *stage)
 void itlmt7902::m3Capture(const uint8_t *frame, uint32_t len, const char *ssid, uint8_t ch)
 {
     if (!m3On || !m3ssid[0] || len < 36 || strcmp(ssid, m3ssid) != 0 || !mt7902_join_channel(ch)) return;
+#ifdef MTK_WITH_MT7902
+    if (mtkBridge && (mtkBssidPin[0] | mtkBssidPin[1] | mtkBssidPin[2] | mtkBssidPin[3] | mtkBssidPin[4] | mtkBssidPin[5]) &&
+        memcmp(mtkBssidPin, frame + 16, 6)) return;
+#endif
     // prefer 5 GHz; otherwise keep the first one seen
     if (tgtFound && !(ch > 14 && tgtCh <= 14)) return;
     tgtFound = true;
@@ -786,6 +790,9 @@ int itlmt7902::m3Run1()
         for (int k = 0; k < no && sel < 0 && !shouldStop() && !firmwareFault && !cmdPending(CMD_JOIN | CMD_DISCONNECT); k++) {
             int i = order[k];
             strlcpy(m3ssid, nets[i].ssid, sizeof(m3ssid));
+#ifdef MTK_WITH_MT7902
+            if (mtkBridge) memcpy(mtkBssidPin, nets[i].bssid, 6);
+#endif
             tgtFound = false;
             m3log("scan #%d for net%d (passive)", attempt, i + 1);
             int scanRc=m2Scan(nullptr);

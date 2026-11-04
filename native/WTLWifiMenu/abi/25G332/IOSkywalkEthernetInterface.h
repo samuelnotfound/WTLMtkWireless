@@ -1,0 +1,73 @@
+// <wtl> project: mtkwlannative | file: abi/25G332/IOSkywalkEthernetInterface.h | author: watchthelight </wtl>
+// SPDX-License-Identifier: ISC
+// GENERATED from the kcabi dump of 25G332 (macOS 26.7.2 build 25G332, xnu-12377.161.15.701.48~2). Do not edit by hand: re-run genhdr.py.
+//
+// IOSkywalkEthernetInterface : IOSkywalkNetworkInterface as Apple's kernel collection exports it on this build. Slot numbers count the two vtable header words
+// (byte offset in the vtable symbol = slot * 8; from a vptr = slot * 8 - 0x10). Instance size 0x120 (MetaClass constructor).
+// Names are Apple's own symbols; pure slots are named by the first derived class that implements them. Return types are not
+// in mangled names: "ret: guess" is a guess from the name. Checked with genhdr.py check (clang's vtable layout of a probe
+// subclass against the dump). Method adapted from ga403wm-hackintosh tools/io80211_abi.py (BSD-3-Clause-Clear).
+#pragma once
+#include "IOSkywalkNetworkInterface.h"
+#include <IOKit/IOReturn.h>
+#include <stdint.h>
+
+struct ether_addr;
+struct __mbuf;
+struct __ifnet;
+struct ifnet_init_eparams;
+struct nicproxy_info_s;
+struct nicproxy_limits_info_s;
+struct sockaddr_dl;
+
+class IOSkywalkEthernetInterface : public IOSkywalkNetworkInterface {
+    OSDeclareDefaultStructors(IOSkywalkEthernetInterface)
+
+public:
+    // overrides of inherited virtuals (declared so that super:: reaches Apple's code)
+    /* 20 */ virtual void free() override;
+    /* 75 */ virtual bool init(OSDictionary* a1) override;
+    /* 240 */ virtual IOReturn newUserClient(task* a1, void* a2, uint32_t a3, OSDictionary* a4, IOUserClient** a5) override;
+    /* 255 */ virtual IOReturn setPowerState(unsigned long a1, IOService* a2) override;
+    /* 268 */ virtual IOReturn enable(uint32_t a1) override;
+    /* 286 */ virtual IOReturn initBSDInterfaceParameters(ifnet_init_eparams* a1, sockaddr_dl** a2) override;
+    /* 287 */ virtual IOReturn prepareBSDInterface(__ifnet* a1, uint32_t a2) override;
+    /* 292 */ virtual IOReturn processBSDCommand(__ifnet* a1, uint32_t a2, void* a3) override;
+    /* 300 */ virtual IOReturn getPacketTapInfo(uint32_t* a1, uint32_t* a2) override;
+    /* 303 */ virtual IOReturn enableNetworkWake(uint32_t a1) override;
+    /* 305 */ virtual uint32_t getMaxTransferUnit() override;
+    /* 307 */ virtual uint32_t getMinPacketSize() override;
+    /* 310 */ virtual uint32_t getInterfaceFamily() override;
+    /* 311 */ virtual uint32_t getInterfaceSubFamily() override;
+    /* 312 */ virtual uint32_t getInitialMedia() override;
+    /* 319 */ virtual const char * getBSDNamePrefix() override;
+
+    // new virtuals, slots 335..354
+    /* 335 */ virtual IOReturn getHardwareAddress(ether_addr* a1);   // ret: guess
+    /* 336 */ virtual IOReturn setHardwareAddress(ether_addr* a1);   // ret: status of the MAC address agent
+    /* 337 */ virtual void setLinkLayerAddress(ether_addr* a1);   // ret: guess from name
+    /* 338 */ virtual IOReturn configureMulticastFilter(uint32_t a1, ether_addr const* a2, uint32_t a3);   // ret: guess
+    /* 339 */ virtual void setMulticastAddresses(ether_addr const* a1, uint32_t a2);   // ret: guess from name
+    /* 340 */ virtual void setAllMulticastModeEnable(bool a1);   // ret: guess from name
+    /* 341 */ virtual void setPromiscuousModeEnable(bool a1, uint32_t a2);   // ret: guess from name
+    /* 342 */ virtual IOReturn reportNicProxyLimits(nicproxy_limits_info_s a1);   // ret: guess
+    /* 343 */ virtual IOReturn hwConfigNicProxyData(nicproxy_info_s* a1);   // ret: guess
+    /* 344 */ virtual void _RESERVEDIOSkywalkEthernetInterface0();
+    /* 345 */ virtual void _RESERVEDIOSkywalkEthernetInterface1();
+    /* 346 */ virtual void _RESERVEDIOSkywalkEthernetInterface2();
+    /* 347 */ virtual void _RESERVEDIOSkywalkEthernetInterface3();
+    /* 348 */ virtual void _RESERVEDIOSkywalkEthernetInterface4();
+    /* 349 */ virtual void _RESERVEDIOSkywalkEthernetInterface5();
+    /* 350 */ virtual void _RESERVEDIOSkywalkEthernetInterface6();
+    /* 351 */ virtual void _RESERVEDIOSkywalkEthernetInterface7();
+    /* 352 */ virtual void _RESERVEDIOSkywalkEthernetInterface8();
+    /* 353 */ virtual void _RESERVEDIOSkywalkEthernetInterface9();
+    /* 354 */ virtual void _RESERVEDIOSkywalkEthernetInterface10();
+
+    struct RegistrationInfo;   // opaque 0x130-byte block (version 1, size 0x130, MAC at +0x108)
+    IOReturn initRegistrationInfo(RegistrationInfo* info, uint32_t version, unsigned long size);   // exported: __ZN26IOSkywalkEthernetInterface20initRegistrationInfoEPNS_16RegistrationInfoEjm; called with (info, 1, 0x130) on a zeroed block
+
+protected:
+    uint8_t iOSkywalkEthernetInterfaceOpaque[0x120 - sizeof(IOSkywalkNetworkInterface)];   // ivars of Apple's class: layout not determined
+};
+static_assert(sizeof(IOSkywalkEthernetInterface) == 0x120, "IOSkywalkEthernetInterface must be 0x120 bytes (25G332)");

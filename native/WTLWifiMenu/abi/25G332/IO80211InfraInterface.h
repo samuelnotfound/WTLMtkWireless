@@ -1,0 +1,128 @@
+// <wtl> project: mtkwlannative | file: abi/25G332/IO80211InfraInterface.h | author: watchthelight </wtl>
+// SPDX-License-Identifier: ISC
+// GENERATED from the kcabi dump of 25G332 (macOS 26.7.2 build 25G332, xnu-12377.161.15.701.48~2). Do not edit by hand: re-run genhdr.py.
+//
+// IO80211InfraInterface : IO80211SkywalkInterface as Apple's kernel collection exports it on this build. Slot numbers count the two vtable header words
+// (byte offset in the vtable symbol = slot * 8; from a vptr = slot * 8 - 0x10). Instance size 0x130 (MetaClass constructor).
+// Names are Apple's own symbols; pure slots are named by the first derived class that implements them. Return types are not
+// in mangled names: "ret: guess" is a guess from the name. Checked with genhdr.py check (clang's vtable layout of a probe
+// subclass against the dump). Method adapted from ga403wm-hackintosh tools/io80211_abi.py (BSD-3-Clause-Clear).
+#pragma once
+#include "IO80211SkywalkInterface.h"
+#include <IOKit/IOReturn.h>
+#include <stdint.h>
+
+struct ether_addr;
+struct __mbuf;
+class IO80211NetworkPacket;
+class IO80211Peer;
+class IOSkywalkPacketBufferPool;
+class IOSkywalkPacketQueue;
+struct PacketSkywalkScratch;
+struct TxCompletionEnqueueStats;
+struct TxSubmissionDequeueStats;
+struct __ifnet;
+struct apple80211_ManagementInformationBasedot11_counters;
+struct apple80211_cca_report;
+struct apple80211_channel;
+struct apple80211_chip_counters_rx;
+struct apple80211_chip_counters_tx;
+struct apple80211_chip_error_counters_tx;
+struct apple80211_frame_counters;
+struct apple80211_infra_specific_stats;
+struct apple80211_interface_availability;
+struct apple80211_lqm_summary;
+struct apple80211_rx_data_stall_report;
+struct apple80211_scan_data;
+struct apple80211_stat_report;
+struct apple80211_wcl_advisory_info;
+struct apple80211_wcl_tx_rx_latency;
+struct apple80211_wcl_update_link_state;
+struct ether_header;
+struct ifnet_init_eparams;
+struct mloAddrArray;
+struct nicproxy_info_s;
+struct packet_info_tag;
+struct sockaddr_dl;
+#ifndef IO80211_ENUM_IO80211LinkState
+#define IO80211_ENUM_IO80211LinkState
+enum IO80211LinkState : uint32_t {};
+#endif
+#ifndef IO80211_ENUM_apple80211_wme_ac
+#define IO80211_ENUM_apple80211_wme_ac
+enum apple80211_wme_ac : uint32_t {};
+#endif
+
+class IO80211InfraInterface : public IO80211SkywalkInterface {
+    OSDeclareAbstractStructors(IO80211InfraInterface)
+
+public:
+    // overrides of inherited virtuals (declared so that super:: reaches Apple's code)
+    /* 19 */ virtual bool init() override;
+    /* 20 */ virtual void free() override;
+    /* 135 */ virtual IOReturn configureReport(IOReportChannelList* a1, uint32_t a2, void* a3, void* a4) override;
+    /* 136 */ virtual IOReturn updateReport(IOReportChannelList* a1, uint32_t a2, void* a3, void* a4) override;
+    /* 186 */ virtual bool start(IOService* a1) override;
+    /* 187 */ virtual void stop(IOService* a1) override;
+    /* 255 */ virtual IOReturn setPowerState(unsigned long a1, IOService* a2) override;
+    /* 286 */ virtual IOReturn initBSDInterfaceParameters(ifnet_init_eparams* a1, sockaddr_dl** a2) override;
+    /* 287 */ virtual IOReturn prepareBSDInterface(__ifnet* a1, uint32_t a2) override;
+    /* 292 */ virtual IOReturn processBSDCommand(__ifnet* a1, uint32_t a2, void* a3) override;
+    /* 296 */ virtual void setInterfaceEnable(bool a1) override;
+    /* 308 */ virtual uint32_t getHardwareAssists() override;
+    /* 318 */ virtual IOReturn bpfTap(uint32_t a1, uint32_t a2) override;
+    /* 343 */ virtual IOReturn hwConfigNicProxyData(nicproxy_info_s* a1) override;
+    /* 357 */ virtual IOReturn postMessage(uint32_t a1, void* a2, unsigned long a3, bool a4) override;
+    /* 359 */ virtual void recordOutputPackets(TxSubmissionDequeueStats* a1, TxSubmissionDequeueStats* a2) override;
+    /* 361 */ virtual void logTxPacket(IO80211NetworkPacket* a1, PacketSkywalkScratch* a2, apple80211_wme_ac a3, bool a4) override;
+    /* 362 */ virtual void logTxCompletionPacket(IO80211NetworkPacket* a1, PacketSkywalkScratch* a2, uint8_t* a3, apple80211_wme_ac a4, int a5, uint32_t a6, bool a7, bool a8) override;
+    /* 363 */ virtual void recordCompletionPackets(TxCompletionEnqueueStats* a1, TxCompletionEnqueueStats* a2) override;
+    /* 364 */ virtual IOReturn inputPacket(IO80211NetworkPacket* a1, packet_info_tag* a2, ether_header* a3, bool* a4, bool a5) override;
+    /* 367 */ virtual IOReturn pendingPackets(uint8_t a1) override;
+    /* 368 */ virtual IOReturn packetSpace(uint8_t a1) override;
+    /* 370 */ virtual bool isDebounceOnGoing() override;
+    /* 371 */ virtual uint32_t linkState() override;
+    /* 372 */ virtual IOReturn setScanningState(uint32_t a1, bool a2, apple80211_scan_data* a3, int a4) override;
+    /* 373 */ virtual void setDataPathState(bool a1) override;
+    /* 374 */ virtual IO80211ScanManager * getScanManager() override;
+    /* 376 */ virtual void updateLinkParameters(apple80211_interface_availability* a1) override;
+    /* 377 */ virtual void updateInterfaceCoexRiskPct(uint64_t a1) override;
+    /* 378 */ virtual IOReturn setLQM(uint64_t a1) override;
+    /* 379 */ virtual void updateLinkStatus() override;
+    /* 380 */ virtual void updateLinkStatusGated() override;
+    /* 381 */ virtual void setInterfaceExtendedCCA(apple80211_channel a1, apple80211_cca_report* a2) override;
+    /* 382 */ virtual void setInterfaceCCA(apple80211_channel a1, int a2) override;
+    /* 383 */ virtual void setInterfaceNF(apple80211_channel a1, long long a2) override;
+    /* 384 */ virtual void setInterfaceOFDMDesense(apple80211_channel a1, long long a2) override;
+    /* 386 */ virtual void setDebugFlags(uint64_t a1, uint32_t a2) override;
+    /* 387 */ virtual uint32_t debugFlags() override;
+    /* 388 */ virtual void setInterfaceChipCounters(apple80211_stat_report* a1, apple80211_chip_counters_tx* a2, apple80211_chip_error_counters_tx* a3, apple80211_chip_counters_rx* a4) override;
+    /* 389 */ virtual void setInterfaceMIBdot11(apple80211_stat_report* a1, apple80211_ManagementInformationBasedot11_counters* a2) override;
+    /* 390 */ virtual void setFrameStats(apple80211_stat_report* a1, apple80211_frame_counters* a2) override;
+    /* 391 */ virtual void setInfraSpecificFrameStats(apple80211_stat_report* a1, apple80211_infra_specific_stats* a2) override;
+    /* 392 */ virtual void setRxDataStallStats(apple80211_stat_report* a1, apple80211_rx_data_stall_report* a2) override;
+    /* 393 */ virtual IOReturn getWmeTxCounters(uint64_t* a1) override;
+    /* 394 */ virtual void setPeerManagerLogFlag(uint32_t a1, uint32_t a2, uint32_t a3) override;
+    /* 395 */ virtual bool setWoWEnabled(bool a1) override;
+    /* 396 */ virtual bool wowEnabled() override;
+    /* 408 */ virtual IOReturn createLinkQualityMonitor(IO80211Peer* a1, bool a2) override;
+    /* 409 */ virtual IOReturn releaseLinkQualityMonitor(IO80211Peer* a1) override;
+    /* 429 */ virtual uint32_t getAssocState() override;
+    /* 440 */ virtual IOReturn getLQMSummary(apple80211_lqm_summary* a1) override;
+
+    // new virtuals, slots 463..470
+    /* 463 */ virtual bool setLinkState(IO80211LinkState a1, uint32_t a2, bool a3, uint32_t a4, uint32_t a5);   // ret: returns a success flag
+    /* 464 */ virtual bool setLinkStateInternal(IO80211LinkState a1, uint32_t a2, bool a3, uint32_t a4, uint32_t a5);   // ret: returns a success flag
+    /* 465 */ virtual void setCurrentApAddress(ether_addr* a1);   // ret: guess from name
+    /* 466 */ virtual IOReturn setWCL_ADVISORTY_INFO(apple80211_wcl_advisory_info* a1);   // ret: request handler: the ioctl status
+    /* 467 */ virtual IOReturn getWCL_TX_RX_LATENCY(apple80211_wcl_tx_rx_latency* a1);   // ret: request handler: the ioctl status
+    /* 468 */ virtual IOReturn setWCL_LINK_STATE_UPDATE(apple80211_wcl_update_link_state* a1);   // ret: request handler: the ioctl status
+    /* 469 */ virtual IOReturn createLQMData();   // ret: guess
+    /* 470 */ virtual IOReturn setMacAddress(mloAddrArray& a1) = 0;   // ret: Apple's interface returns its core's status
+
+    IOReturn registerInfraEthernetInterface(IOSkywalkEthernetInterface::RegistrationInfo* info, IOSkywalkPacketQueue** queues, uint32_t count, IOSkywalkPacketBufferPool* txPool, IOSkywalkPacketBufferPool* rxPool);   // exported: __ZN21IO80211InfraInterface30registerInfraEthernetInterfaceEPN26IOSkywalkEthernetInterface16RegistrationInfoEPP20IOSkywalkPacketQueuejP25IOSkywalkPacketBufferPoolS7_; registers the queue array and the pools
+
+protected:
+    uint8_t iO80211InfraInterfaceOpaque[0x130 - sizeof(IO80211SkywalkInterface)];   // ivars of Apple's class: layout not determined
+};
+static_assert(sizeof(IO80211InfraInterface) == 0x130, "IO80211InfraInterface must be 0x130 bytes (25G332)");

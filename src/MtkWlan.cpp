@@ -102,9 +102,12 @@ bool MtkWlan::start(IOService *provider) {
         // Dispatch before touching any Connac3 registers, DMA, firmware or power state.
         mt7902 = Mtk7902Backend::create(this);
         if (!mt7902 || !mt7902->start(this)) { step("MT7902 backend failed to start"); return true; }
+        if (OSString *fe = OSDynamicCast(OSString, getProperty("MtkFrontEnd"))) feNativeWanted = fe->isEqualTo("native");
+        char feArg7902[16] = {};
+        if (PE_parse_boot_argn("mtkfe", feArg7902, sizeof(feArg7902))) feNativeWanted = !strcmp(feArg7902, "native");
         setProperty("MtkChip", "MT7902 Connac2");
-        setProperty("MtkFrontEndWanted", "ethernet");
-        setProperty("Mtk7902BackendVersion", "itlmt7902 0.2.12 / Mtk API v2");
+        setProperty("MtkFrontEndWanted", feNativeWanted ? "native" : "ethernet");
+        setProperty("Mtk7902BackendVersion", "itlmt7902 0.2.12 / Mtk API v4");
         // Interface creation must run off the gate and after the firmware station MAC is available.
         feFallbackCall = thread_call_allocate(&MtkWlan::feFallbackThread, this);
         timer = IOTimerEventSource::timerEventSource(this, &MtkWlan::timerFired);
@@ -112,8 +115,15 @@ bool MtkWlan::start(IOService *provider) {
             mt7902->stop(); step("MT7902 work loop setup failed"); return true;
         }
         timer->setTimeoutMS(5);
+        static IOPMPowerState states7902[2] = {
+            {kIOPMPowerStateVersion1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {kIOPMPowerStateVersion1, kIOPMPowerOn, kIOPMPowerOn, kIOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0},
+        };
+        PMinit(); provider->joinPMtree(this);
+        pmJoined = registerPowerDriver(this, states7902, 2) == kIOReturnSuccess;
         step("MT7902 firmware worker starting; waiting for station MAC");
-        registerService();
+        // The backend timer publishes on a separate thread after the MAC is known. The native frontend
+        // reads get_mac immediately in start(), before it creates the IO80211 interface.
         return true;
     }
     // open networks the connection manager may join by itself (SSID prefixes); none = never
@@ -263,6 +273,7 @@ void MtkWlan::systemWillShutdown(IOOptionBits specifier) {
 
 void MtkWlan::stop(IOService *provider) {
     if (mt7902) {
+        if (pmJoined) { PMstop(); pmJoined = false; }
         if (timer) { timer->cancelTimeout(); if (workLoop) workLoop->removeEventSource(timer); OSSafeReleaseNULL(timer); }
         if (feFallbackCall) thread_call_cancel_wait(feFallbackCall);
         mt7902->stop();

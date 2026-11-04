@@ -659,6 +659,11 @@ void MtkWlan::frontEndService() {
 
 void MtkWlan::feFallbackThread(void *owner, void *) {
     MtkWlan *self = static_cast<MtkWlan *>(owner);
+    if (self->mt7902 && !self->mt7902->published) {
+        self->mt7902->published = true;
+        self->registerService();
+        if (self->feNativeWanted) return; // native probe/start claims the core; the timer handles a decline/timeout
+    }
     int fr = self->startFrontEnd();
     self->setNum("MtkW0FrontEnd", (uint32_t)fr);
     self->step(fr ? "W6 fail: Ethernet front end (MtkWlanEth) did not start after the native fallback"
@@ -720,9 +725,8 @@ const mtk_core_ops_v5 MtkWlan::kOpsV5 = {
 
 IOReturn MtkWlan::callPlatformFunction(const OSSymbol *functionName, bool waitForFunction, void *param1, void *param2,
                                        void *param3, void *param4) {
-    // v3+ requires native BSS/private MAC/country handling not implemented by the Connac2 backend.
-    // Refuse those versions explicitly; never route an unsupported op into Connac3 hardware code.
-    if (mt7902 && functionName && !functionName->isEqualTo(MTK_CORE_OPS_V1) && !functionName->isEqualTo(MTK_CORE_OPS_V2))
+    // Country/rate API v5 remains Connac3-only. The Connac2 adapter implements native API v3/v4.
+    if (mt7902 && functionName && functionName->isEqualTo(MTK_CORE_OPS_V5))
         return kIOReturnUnsupported;
     if (functionName && functionName->isEqualTo(MTK_CORE_OPS_V1)) {
         if (!param1 || !param2) return kIOReturnBadArgument;
@@ -841,7 +845,7 @@ int MtkWlan::opTxBytes(void *core, const uint8_t *frame, uint32_t len) {
 // v4 (gate held by the caller): the station address the front end was given (macOS's private address per network)
 int MtkWlan::opSetMac(void *core, const uint8_t m[6]) { return static_cast<MtkWlan *>(core)->coreSetMac(m); }
 int MtkWlan::coreSetMac(const uint8_t m[6]) {
-    if (mt7902) return -2;
+    if (mt7902) return mt7902->setMac(m);
     if (!m || (m[0] & 1) || !(m[0] | m[1] | m[2] | m[3] | m[4] | m[5])) return -1;
     if (!memcmp(mac, m, 6)) return 0;
     if (joinState) joinTeardown(3);                 // reason 3, leaving; the manager rejoins the wanted network with the new address
@@ -977,6 +981,7 @@ void MtkWlan::countryService() {
 }
 
 int MtkWlan::opGetMac(void *core, uint8_t out[6]) {
+    if (static_cast<MtkWlan *>(core)->mt7902) return static_cast<MtkWlan *>(core)->mt7902->getMac(out);
     memcpy(out, static_cast<MtkWlan *>(core)->mac, 6);
     return 0;
 }
@@ -985,11 +990,7 @@ int MtkWlan::opGetLinkInfo(void *core, mtk_link_info *out) {
     MtkWlan *self = static_cast<MtkWlan *>(core);
     bzero(out, sizeof(*out));
     if (self->mt7902) {
-        mtk_status s; self->mt7902->snapshot(&s);
-        out->up = s.link_up; out->enabled = self->ifEnabled; out->speed = s.speed;
-        memcpy(out->bssid, s.bssid, 6); memcpy(out->ssid, s.ssid, sizeof(out->ssid));
-        out->channel = out->center = s.channel; out->nss = 1;
-        return 0;
+        return self->mt7902->getLink(out);
     }
     out->up = self->linkUp;
     out->enabled = self->ifEnabled;

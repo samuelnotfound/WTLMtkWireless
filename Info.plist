@@ -71,7 +71,7 @@
 			<key>IOUserClientClass</key>
 			<string>MtkWlanUserClient</string>
 			<key>MtkFrontEnd</key>
-			<string>ethernet</string>
+			<string>native</string>
 			<key>MtkAllowConsoleControl</key>
 			<true/>
 		</dict>

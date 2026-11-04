@@ -140,6 +140,7 @@ IOReturn itlmt7902::ucJoin(const char *ssid, const char *psk)
     strlcpy(reqNet.ssid, ssid, sizeof(reqNet.ssid));
     strlcpy(reqNet.psk, psk, sizeof(reqNet.psk));
     reqNet.hasPmk = false;
+    bzero(reqNet.bssid, sizeof(reqNet.bssid));
     reqNet.native = false;
     bzero(reqNet.pmk, sizeof(reqNet.pmk));
     cmdBits = (cmdBits & ~(uint32_t)CMD_DISCONNECT) | (uint32_t)CMD_JOIN;
@@ -620,6 +621,9 @@ void itlmt7902::m3Supervise()
             wifiState(want ? "connecting" : "idle", "");
         }
         Net j;
+#ifdef MTK_WITH_MT7902
+        if (mtkBridge) mtkBridge->workerControl();
+#endif
         uint32_t c = cmdTake(CMD_SCAN | CMD_JOIN | CMD_DISCONNECT, &j);
         if (c & CMD_DISCONNECT) {
             want = false; haveUser = false; fails = 0; away = false; userNative = false;

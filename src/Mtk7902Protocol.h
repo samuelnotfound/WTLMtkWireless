@@ -18,9 +18,8 @@ static inline uint32_t mtk7902_join_result(const char *stage) {
 static inline bool mtk7902_valid_join(const mtk_join_params *p) {
     if (!p || p->version != MTK_USER_API_VERSION || !p->ssid_len || p->ssid_len > 32 || p->key_type != MTK_KEY_PMK)
         return false; // current Connac2 backend implements WPA2-PSK/CCMP only
-    // The old selector uses a C string and chooses the BSS by SSID. Refuse unsupported requests rather than silently
-    // truncating an SSID or connecting to a different BSSID from the one the caller requested.
+    // The radio's selector uses a C string. Preserve the complete SSID and validate an optional unicast BSSID.
     for (unsigned i = 0; i < p->ssid_len; ++i) if (!p->ssid[i]) return false;
-    for (unsigned i = 0; i < 6; ++i) if (p->bssid[i]) return false;
+    if (p->bssid[0] & 1) return false;
     return true;
 }

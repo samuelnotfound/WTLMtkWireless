@@ -2,6 +2,9 @@
 // Copyright (c) 2026 thanhnndev and contributors; MediaTek Inc. protocol references.
 // Connac2 scan/capability/receive port; 36-byte events and packed CE scan.
 #include "itlmt7902.hpp"
+#ifdef MTK_WITH_MT7902
+#include "Mtk7902Backend.hpp"
+#endif
 #include "mt7902_regs.h"
 #include "../codec/mt7902_rx_codec.h"
 #include <string.h>
@@ -211,6 +214,9 @@ int itlmt7902::m2Run()
         return -22;
     }
     memcpy(mac,nicCaps.mac,6);
+#ifdef MTK_WITH_MT7902
+    if (mtkBridge) mtkBridge->restoreMac();
+#endif
     setProperty("nic-nss",nicCaps.nss,32); setProperty("nic-chain-mask",nicCaps.chain_mask,32);
     setProperty("nic-band-mask",nicCaps.bands,32); setProperty("nic-he",nicCaps.he,32);
     m2log("NIC capabilities nss=%u chains=%x bands=%x ht=%u vht=%u he=%u bw=%u",

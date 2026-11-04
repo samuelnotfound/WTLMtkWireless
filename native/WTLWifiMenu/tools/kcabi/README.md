@@ -1,0 +1,3 @@
+# kcabi
+
+Tools that read a macOS kernel collection: `dump.py` writes class sizes, vtables, method lists, the apple80211 ioctl dispatch tables and the WCL bulletin-board subscriber tables for one build; `genhdr.py gen` turns a dump into the C++ headers and the request-slot stub file this kext builds against, and `genhdr.py check-native` checks that every override of a class sits on Apple's slot; `linkcheck.py` checks a built kext's undefined symbols against the collection; `disasm.py` disassembles one function with symbol and string notes; `compare.py` diffs two dumps. Python 3.9, no dependencies; `disasm.py` needs llvm-objdump.

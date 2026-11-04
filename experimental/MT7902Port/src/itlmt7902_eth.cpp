@@ -241,7 +241,7 @@ void itlmt7902::ethLink(bool up)
 #ifdef MTK_WITH_MT7902
     if (mtkBridge) {
         IOLockLock(mtkBridge->lock);
-        if (!up) { mtkBridge->txTail = mtkBridge->txHead; mtkBridge->rxTail = mtkBridge->rxHead; }
+        if (!up) { mtkBridge->tx.clear(); mtkBridge->rx.clear(); }
         IOLockUnlock(mtkBridge->lock);
         mtkBridge->lastPublish = 0; mtkBridge->publish();
         return;

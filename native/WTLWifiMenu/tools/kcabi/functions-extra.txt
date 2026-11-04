@@ -1,0 +1,39 @@
+# <wtl> project: mtkwlannative | file: tools/kcabi/functions-extra.txt | author: watchthelight </wtl>
+# Extra functions dumped by dump.py beyond the reference list (one mangled name per line; a trailing * is a prefix).
+# These are the IO80211Family internals the itlmt7925Native join / link / scan path was debugged against on 24H32
+# (ga403wm docs/TEST-NATIVE-WIFI.md rounds 15-23). Dump them on every build so their payload offsets can be diffed.
+__ZN14WCLJoinManager*
+__ZN13WCLNetManager*
+__ZN13WCLBssManager13setCurrentBSS*
+__ZN16WCLConfigManager7getSSID*
+__ZN16WCLConfigManager8getBSSID*
+__ZN17WCLMngFrameRouter22scanResultEventHandler*
+__ZN14WCLScanManager20scanDoneEventHandler*
+__ZN22AppleBCMWLANNetAdapter18getExtendedBssInfo*
+__ZN23IOSkywalkLegacyEthernet*
+__ZN17IO80211Controller5start*
+__ZN17IO80211Controller4init*
+__ZN17IO80211Controller16CreatePostOffice*
+__ZN23IO80211SkywalkInterface5start*
+__ZN23IO80211SkywalkInterface19isCommandProhibited*
+__ZN21IO80211InfraInterface5start*
+__ZN21IO80211InfraInterface4init*
+__ZN25AppleBCMWLANInfraProtocol16setWCL_ASSOCIATE*
+__ZN25AppleBCMWLANInfraProtocol15setWCL_SCAN_REQ*
+__ZN16AppleBCMWLANCore26getFaultReporterFromDriver*
+__ZN16AppleBCMWLANCore22createSkywalkInterface*
+__ZN28AppleBCMWLANSkywalkInterface13setMacAddress*
+__ZN26IOSkywalkEthernetInterface20initRegistrationInfo*
+# Scan results (event 0xc9): the handler moved from WCLScanManager to WCLMngFrameRouter on 25G241 and the
+# BeaconMetaData header grew from 0x40 to 0x44 bytes; these readers show where the new field sits.
+__ZN14WCLScanManager22ScanResultEventHandler*
+__ZN17WCLMngFrameRouter*
+__ZN17WCLScanCacheStore*
+__ZN21IO80211ScanCacheStore17updateOrAddBeacon*
+
+# AWDL stage 0 (MtkWlanNative AWDL plan, evidence/native/scout-1030-followups): the virtual interface create path and the
+# peer / protocol classes. Dumped so their layout can be diffed per build before any AWDL code is written.
+__ZN20IO80211InfraProtocol*
+__ZN19IO80211AWDLProtocol*
+__ZN22IO80211AWDLPeerManager*
+__ZN23IO80211VirtualInterface*

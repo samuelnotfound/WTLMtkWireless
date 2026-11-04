@@ -16,6 +16,7 @@
 // element (mtk_rsn_parse in MtkSupp.c). The connection manager in MtkJoin.cpp picks from that cache.
 
 #include "MtkWlan.hpp"
+#include "../experimental/MT7902Port/codec/mt7902_join_codec.h"
 
 namespace {
 constexpr uint32_t MCU_UNI_TXD_LEN = 48;   // struct mt76_connac2_mcu_uni_txd
@@ -273,6 +274,11 @@ void MtkWlan::bssNoteFrame(const uint8_t *f, uint32_t flen, int8_t rssi) {
 // The primary 20 MHz channels of the domain the firmware scans (kCh2 + kCh5): what the native front end reports as
 // supported channels. Any thread: the arrays are constants.
 uint32_t MtkWlan::coreChannels(uint8_t *list, uint32_t max) {
+    if (mt7902) {
+        uint32_t n = 0;
+        for (unsigned ch = 1; ch <= 165 && n < max; ++ch) if (mt7902_join_channel((uint8_t)ch)) list[n++] = (uint8_t)ch;
+        return n;
+    }
     uint8_t ch[sizeof(kCh2) + sizeof(kCh2Extra) + sizeof(kCh5)];
     uint32_t n2, n = domainChannels(ch, nullptr, &n2);
     if (n > max) n = max;

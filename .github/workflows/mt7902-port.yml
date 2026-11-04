@@ -15,7 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify MT7902 firmware and standalone metadata
-        run: python3 experimental/MT7902Port/scripts/check-release.py
+        run: |
+          python3 experimental/MT7902Port/scripts/check-release.py
+          python3 tools/check-mt7902.py
       - name: Test Mtk supplicant and supervisor
         run: bash tests/run.sh
       - name: Test Connac2 protocol codecs and inherited supplicant
@@ -28,6 +30,8 @@ jobs:
         run: |
           clang++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined tests/mt7902_adapter_test.cpp -o out/mt7902_adapter_test
           out/mt7902_adapter_test
+      - name: Test native channel descriptors
+        run: bash native/WTLWifiMenu/tests/run.sh
   macos-build:
     needs: host-tests
     runs-on: macos-15-intel
@@ -46,12 +50,14 @@ jobs:
           mkdir -p out
           {
             bash tools/build-mac.sh &&
+            ABI=25G332 NO_LINKCHECK=1 bash native/WTLWifiMenu/build.sh &&
             bash tools/build-menu7902.sh &&
             bash tools/mtkwifi/build.sh
           } > out/compile.log 2>&1 || { tail -120 out/compile.log; exit 1; }
       - name: Check architecture and package both chips' embedded firmware
         run: |
           lipo out/MtkWlan.kext/Contents/MacOS/MtkWlan -verify_arch x86_64
+          lipo native/WTLWifiMenu/out/MtkWlanNative.kext/Contents/MacOS/MtkWlanNative -verify_arch x86_64
           lipo out/MtkWiFi7902.app/Contents/MacOS/MtkWiFi7902 -verify_arch x86_64
           python3 tools/package-mt7902.py
       - uses: actions/upload-artifact@v4

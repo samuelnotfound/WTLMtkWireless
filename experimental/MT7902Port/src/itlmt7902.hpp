@@ -81,6 +81,7 @@ private:
 #ifdef MTK_WITH_MT7902
     friend struct Mtk7902Backend;
     Mtk7902Backend *mtkBridge = nullptr;
+    uint8_t mtkBssidPin[6] = {};
 #endif
     bool busMasterOn = false;
     bool quiesceHardware();
@@ -444,7 +445,7 @@ private:
     // ---- runtime control: command mailbox, supervisor loop, status for the menu bar app (itlmt7902_uc.cpp) ----
     enum { CMD_SCAN = 1, CMD_JOIN = 2, CMD_DISCONNECT = 4 };
     // hasPmk: `pmk` is the ready pairwise master key (native Wi-Fi: userland's supplicant derived it), psk is empty then
-    struct Net { char ssid[33]; char psk[72]; bool hasPmk; bool native; uint8_t pmk[32]; };
+    struct Net { char ssid[33]; char psk[72]; bool hasPmk; bool native; uint8_t pmk[32]; uint8_t bssid[6]; };
     IOLock *cmdLock = nullptr;
     volatile uint32_t cmdBits = 0;
     Net reqNet = {};                         // the network of the last join command (under cmdLock)
