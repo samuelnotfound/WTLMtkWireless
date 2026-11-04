@@ -48,6 +48,12 @@ enum Driver {
         s.canJoin = (prop("join-supported") as? NSNumber)?.boolValue ?? false
         s.state = prop("wifi-state") as? String ?? "off"
         s.error = prop("wifi-error") as? String ?? ""
+        #if MTK_CORE
+        if (prop("MtkFrontEndActive") as? String)?.hasPrefix("native") == true {
+            s.canScan = false; s.canJoin = false
+            s.error = "macOS native Wi-Fi controls this card. Use the Wi-Fi menu; this app is for Ethernet mode (mtkfe=ethernet)."
+        }
+        #endif
         s.ssid = prop("wifi-ssid") as? String ?? ""
         s.events = (prop("wifi-events") as? String ?? "").split(separator: "\n").map(String.init)
         s.channel = num("wifi-channel"); s.rssi = num("wifi-rssi"); s.rate = num("wifi-rate"); s.scanGen = num("wifi-scan-gen")
