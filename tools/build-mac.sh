@@ -29,7 +29,7 @@ python3 tools/gen_firmware.py out/gen/MtkFirmware.c
 FLAGS="-arch x86_64 -mmacosx-version-min=10.15 -mkernel -nostdinc -fno-builtin -fno-common -fno-stack-protector
  -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT -DMTK_WITH_MT7902 -isystem $RES/include -I$K -Isrc -O2 -g0 -Wall -Wno-unused-parameter
  -Wno-deprecated-declarations"
-CXXFLAGS="$FLAGS -fapple-kext -std=gnu++17 -nostdinc++ -fno-exceptions -fno-rtti -fno-use-cxa-atexit
+CXXFLAGS="$FLAGS -fstack-usage -fapple-kext -std=gnu++17 -nostdinc++ -fno-exceptions -fno-rtti -fno-use-cxa-atexit
  -fno-register-global-dtors-with-atexit -Wno-inconsistent-missing-override"
 OBJS=""
 for s in $SRCS; do

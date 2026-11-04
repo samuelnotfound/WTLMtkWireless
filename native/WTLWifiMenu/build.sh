@@ -23,7 +23,7 @@ mkdir -p "$OUT/MacOS" out/obj
 FLAGS="-arch x86_64 -mmacosx-version-min=10.15 -mkernel -nostdinc -fno-builtin -fno-common -fno-stack-protector
  -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT -isystem $RES/include -I$K -O2 -g0 -Wall -Wno-unused-parameter
  -Wno-deprecated-declarations"
-CXXFLAGS="$FLAGS -fapple-kext -std=gnu++17 -nostdinc++ -fno-exceptions -fno-rtti -fno-use-cxa-atexit
+CXXFLAGS="$FLAGS -fstack-usage -fapple-kext -std=gnu++17 -nostdinc++ -fno-exceptions -fno-rtti -fno-use-cxa-atexit
  -fno-register-global-dtors-with-atexit -Wno-inconsistent-missing-override -Iabi/$ABI -Isrc"
 OBJS=""
 echo "== compile ($ABI)"

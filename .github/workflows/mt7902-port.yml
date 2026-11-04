@@ -54,6 +54,13 @@ jobs:
             bash tools/build-menu7902.sh &&
             bash tools/mtkwifi/build.sh
           } > out/compile.log 2>&1 || { tail -120 out/compile.log; exit 1; }
+      - name: Compile standalone backend for stack comparison
+        env:
+          MACKERNELSDK: ${{ github.workspace }}/MacKernelSDK
+          STACK_AUDIT: 1
+        run: bash experimental/MT7902Port/scripts/build.sh > out/standalone-compile.log 2>&1 || { tail -80 out/standalone-compile.log; exit 1; }
+      - name: Report compiled stack frames
+        run: python3 tools/stack-audit.py > out/stack-audit.txt
       - name: Check architecture and package both chips' embedded firmware
         run: |
           lipo out/MtkWlan.kext/Contents/MacOS/MtkWlan -verify_arch x86_64
@@ -73,4 +80,9 @@ jobs:
             out/compile.log
             out/undefined.txt
             out/libraries.*
+            out/stack-audit.txt
+            out/standalone-compile.log
+            out/obj/*.su
+            native/WTLWifiMenu/out/obj/*.su
+            experimental/MT7902Port/build/obj/*.su
           if-no-files-found: ignore

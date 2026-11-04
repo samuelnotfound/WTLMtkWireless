@@ -24,6 +24,7 @@ common=(-arch x86_64 -mmacosx-version-min=12.0 -O2 -g -fno-omit-frame-pointer
         -mkernel -fno-builtin -fno-stack-protector -nostdlib -nostdlibinc
         -ffreestanding -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT
         "-I$kernel_sdk/Headers" -Isrc -Icodec)
+if [[ "${STACK_AUDIT:-0}" == 1 ]]; then common+=(-fstack-usage); fi
 kext=build/itlmt7902.kext
 mkdir -p build/obj "$kext/Contents/MacOS"
 cp src/Info.plist "$kext/Contents/Info.plist"
