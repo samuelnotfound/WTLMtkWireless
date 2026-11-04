@@ -4,8 +4,9 @@
 
 `experimental/MT7902Port` derives from hbyonly1/itlmt7922-wifi, itself based on
 thanhnndev and contributors' MediaTek driver. Our MT7902 snapshot is commit
-`a4869dfc513f1a4ac2bc802657ba1854ad4aaaa8`. No Intel itlwm driver code is included.
-and the BSD-3-Clause-Clear mt76 revision documented in its NOTICE.md. It retains
+`a4869dfc513f1a4ac2bc802657ba1854ad4aaaa8`. Hardware references also use the
+BSD-3-Clause-Clear mt76 revision documented in the subtree's NOTICE.md.
+No Intel itlwm driver code is included. The MediaTek subtree retains
 its BSD-3-Clause-Clear LICENSE, notices and MediaTek firmware distribution terms.
 `src/Mtk7902Backend.*`, `src/Mtk7902Protocol.h`, `src/Mtk7902Firmware.c`, the menu
 build and integration packaging code use BSD-3-Clause-Clear as marked in those
