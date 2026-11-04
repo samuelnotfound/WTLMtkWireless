@@ -56,7 +56,10 @@ IOService *MtkWlanNative::probe(IOService *provider, SInt32 *score) {
     PE_parse_boot_argn("mtknative", &on, sizeof(on));
     const char *why = nullptr;
     char buf[200];
-    if (!on) {
+    OSString *wanted = provider ? OSDynamicCast(OSString, provider->getProperty("MtkFrontEndWanted")) : nullptr;
+    if (wanted && wanted->isEqualTo("ethernet")) {
+        why = "core requested the Ethernet front end";
+    } else if (!on) {
         why = "disabled (MtkNativeEnabled false or boot-arg mtknative=0)";
     } else {
         MtkNativeAbiResult r = mtkNativeAbiCheck(version, OSDynamicCast(OSDictionary, getProperty("MtkNativeAbi")), mtkNativeClassSize);

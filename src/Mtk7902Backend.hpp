@@ -21,7 +21,7 @@ struct Mtk7902Backend {
     mtk_scan_result results[MTK_SCAN_MAX];
     mtk_bss_info bss[MTK_SCAN_MAX];
     mtk_link_info link;
-    uint32_t count, generation, lastPublish, pending, scanStartGen, lastScanMs, requestSerial;
+    uint32_t count, generation, lastPublish, pending, scanStartGen, lastScanMs, requestSerial, bssSnapshotMs;
     mtk_join_params joinRequest;
     bool ready, macReady, scanPending, joinPending, stopping, radioStarted, commandBusy, scanFailed, scanObserved;
     uint8_t mac[6];

@@ -107,6 +107,7 @@ void Mtk7902Backend::publish(bool networks) {
     generation = radio->scanGen;
     status.scans = generation;
     if (networks) {
+        bssSnapshotMs = now;
         count = 0;
         for (int i = 0; i < radio->nAps && count < MTK_SCAN_MAX; ++i) {
             const auto &a = radio->aps[i];
@@ -253,8 +254,13 @@ uint32_t Mtk7902Backend::getResults(mtk_scan_result *out, uint32_t max) {
     IOLockLock(lock);
     uint32_t n = count < max ? count : max;
     memcpy(out, results, n * sizeof(*out));
-    for (uint32_t i = 0; i < n; ++i)
-        if (status.link_up && !memcmp(out[i].bssid, status.bssid, 6)) out[i].flags |= MTK_BSS_CURRENT;
+    uint32_t age = radio->nowMs() - bssSnapshotMs;
+    for (uint32_t i = 0; i < n; ++i) {
+        out[i].age_ms += age;
+        if (status.link_up && !memcmp(out[i].bssid, status.bssid, 6)) {
+            out[i].flags |= MTK_BSS_CURRENT; out[i].rssi = status.rssi;
+        }
+    }
     IOLockUnlock(lock);
     return n;
 }
@@ -320,7 +326,8 @@ int Mtk7902Backend::getBss(uint32_t index, mtk_bss_info *out) {
     int rc = index < count ? 0 : -1;
     if (!rc) {
         *out = bss[index];
-        if (status.link_up && !memcmp(out->bssid, status.bssid, 6)) out->flags |= MTK_BSS_CURRENT;
+        out->age_ms += radio->nowMs() - bssSnapshotMs;
+        if (status.link_up && !memcmp(out->bssid, status.bssid, 6)) { out->flags |= MTK_BSS_CURRENT; out->rssi = status.rssi; }
     }
     IOLockUnlock(lock);
     return rc;
@@ -394,19 +401,24 @@ void Mtk7902Backend::workerControl() {
         mt7902_encode_device_info(dev, sizeof(dev), address);
         rc = radio->m3Cmd(1, dev, sizeof(dev), "native dev(active)");
     }
-    IOLockLock(lock); bool cancelled = macCancelled || stopping; IOLockUnlock(lock);
-    if (rc || cancelled) {
+    IOLockLock(lock);
+    if (rc || macCancelled || stopping) {
+        IOLockUnlock(lock);
         mt7902_encode_device_info(dev, sizeof(dev), previous);
         if (radio->m3Cmd(1, dev, sizeof(dev), "native dev(restore)")) radio->firmwareFault = true;
         rc = -2;
+        IOLockLock(lock);
     } else {
+        // Commit and signal under the same lock as timeout cancellation. A caller must never receive
+        // refusal while a late worker silently commits the new address.
         memcpy(radio->mac, address, 6); radio->m3devReady = true;
-        radio->setProperty("IOMACAddress", address, 6);
-        radio->setProperty("itlmt_mac_source", "native private address");
+        memcpy(mac, address, 6); macOverride = true;
     }
-    IOLockLock(lock);
-    if (!rc) { memcpy(mac, address, 6); macOverride = true; }
     macResult = rc; macCompleted = serial; macApplying = false;
     IOLockWakeup(lock, &macCompleted, false);
     IOLockUnlock(lock);
+    if (!rc) {
+        radio->setProperty("IOMACAddress", address, 6);
+        radio->setProperty("itlmt_mac_source", "native private address");
+    }
 }

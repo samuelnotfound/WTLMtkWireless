@@ -15,7 +15,8 @@ of notices are included in the integrated binary package.
 `a768120b0477930357289dcdfed45a34ec60673d` (0.4.15), under its existing ISC and
 file-specific BSD-3-Clause-Clear notices. This fork builds it as 0.4.16, enables
 the native interface by default, reports the core's chip name, and limits extended
-BSS HT/VHT reporting to the negotiated capabilities. Its Apple ABI allowlist is
+BSS HT/VHT reporting to the negotiated capabilities, and respects an explicit
+Ethernet frontend choice. Its Apple ABI allowlist is
 unchanged: 25G241 and 25G332 only. The native source's LICENSE, NOTICE.md and
 LICENSES directory ship with the binary package.
 
