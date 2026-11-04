@@ -106,6 +106,7 @@ bool MtkWlan::start(IOService *provider) {
         char feArg7902[16] = {};
         if (PE_parse_boot_argn("mtkfe", feArg7902, sizeof(feArg7902))) feNativeWanted = !strcmp(feArg7902, "native");
         setProperty("MtkChip", "MT7902 Connac2");
+        setProperty("MtkQueuedMac", kOSBooleanTrue);
         setProperty("MtkFrontEndWanted", feNativeWanted ? "native" : "ethernet");
         setProperty("Mtk7902BackendVersion", "itlmt7902 0.2.12 / Mtk API v4");
         // Interface creation must run off the gate and after the firmware station MAC is available.

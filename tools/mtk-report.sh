@@ -13,7 +13,7 @@ echo "collecting into $OUT"
 step "system";        { sw_vers; uname -a; sysctl -n kern.bootargs; } > "$OUT/system.txt" 2>&1
 step "pci";           ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | grep -B2 -A30 '"vendor-id" = <c314' | grep -E 'IOName|vendor-id|device-id|subsystem|revision-id|pcidebug|IOPCIExpressLinkStatus|name"' > "$OUT/pci-mediatek.txt" 2>&1
 step "kexts";         kextstat 2>/dev/null | grep -E 'watchthelight|Mtk|IO80211|IOSkywalk' > "$OUT/kextstat.txt"; for k in MtkWlan MtkWlanNative; do kmutil showloaded --bundle-identifier org.watchthelight.$k 2>/dev/null; done >> "$OUT/kextstat.txt" 2>&1
-step "ioreg";         for c in MtkWlan MtkWlanEth MtkWlanNative MtkWlanNativeIf; do ioreg -r -c $c -l -w0 2>/dev/null > "$OUT/ioreg-$c.txt"; done
+step "ioreg";         for c in MtkWlan MtkWlanEth MtkWlanNative MtkWlanNativeIf itlmt7902; do ioreg -r -c $c -l -w0 2>/dev/null > "$OUT/ioreg-$c.txt"; done
 step "interfaces";    { ifconfig -a; echo; netstat -rn; echo; networksetup -listallhardwareports; echo; networksetup -listnetworkserviceorder; } > "$OUT/network.txt" 2>&1
 step "mtkwifi";       { command -v mtkwifi >/dev/null && mtkwifi status --json; command -v mtkwifi >/dev/null && mtkwifi list; } > "$OUT/mtkwifi.txt" 2>&1
 step "wifi profile";  system_profiler SPAirPortDataType > "$OUT/airport-profile.txt" 2>&1

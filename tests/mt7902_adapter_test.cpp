@@ -5,6 +5,10 @@
 #include <stddef.h>
 #include <stdio.h>
 int main() {
+    assert(mtk7902_dispatch_commands(2, true) == 0); // keep join/key until MAC confirmation
+    assert(mtk7902_dispatch_commands(10, true) == 8); // dispatch MAC interrupt, preserve join
+    assert(mtk7902_dispatch_commands(2, false) == 2); // release join after confirmation
+    assert(mtk7902_dispatch_commands(4, true) == 4); // disconnect is never held by the barrier
     static Mtk7902Queue q = {};
     uint8_t frame[1514] = {};
     Mtk7902Queue::Packet packet;

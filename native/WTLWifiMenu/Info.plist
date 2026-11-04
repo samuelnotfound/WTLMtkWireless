@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.4.16</string>
+	<string>0.4.17</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>0.4.16</string>
+	<string>0.4.17</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MtkWlan native front end</key>
@@ -143,7 +143,7 @@
 		<key>com.apple.kpi.mach</key>
 		<string>14.0</string>
 		<key>org.watchthelight.MtkWlan</key>
-		<string>0.10.0</string>
+		<string>0.13.1</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Network-Root</string>

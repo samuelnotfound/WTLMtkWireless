@@ -5,6 +5,9 @@ import plistlib
 import re
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
+backend = (root / 'src/Mtk7902Backend.cpp').read_text()
+gate_mac = backend.split('int Mtk7902Backend::setMac(', 1)[1].split('void Mtk7902Backend::workerControl()', 1)[0]
+assert not any(call in gate_mac for call in ('IOLockSleep', 'IOSleep', 'm3Cmd(')), 'Native MAC gate must not wait on firmware'
 native = root / 'native/WTLWifiMenu'
 for name in ('MtkCoreApi.h', 'MtkUserApi.h'):
     def code(p): return re.sub(r'//[^\n]*', '', p.read_text()).split()

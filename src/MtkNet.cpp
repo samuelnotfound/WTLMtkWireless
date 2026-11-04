@@ -725,6 +725,11 @@ const mtk_core_ops_v5 MtkWlan::kOpsV5 = {
 
 IOReturn MtkWlan::callPlatformFunction(const OSSymbol *functionName, bool waitForFunction, void *param1, void *param2,
                                        void *param3, void *param4) {
+    if (mt7902 && functionName && functionName->isEqualTo("mtk-queue-mac-v1")) {
+        if (!param1 || !param2) return kIOReturnBadArgument;
+        *(int *)param2 = mt7902->queueMac((const uint8_t *)param1);
+        return kIOReturnSuccess;
+    }
     // Country/rate API v5 remains Connac3-only. The Connac2 adapter implements native API v3/v4.
     if (mt7902 && functionName && functionName->isEqualTo(MTK_CORE_OPS_V5))
         return kIOReturnUnsupported;

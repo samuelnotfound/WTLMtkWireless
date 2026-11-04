@@ -212,6 +212,13 @@ IOReturn MtkWlanNativeIf::setMacAddress(mloAddrArray &addresses) {
 IOReturn MtkWlanNativeIf::gatedSetMac(OSObject *owner, void *mac, void *rc, void *, void *) {
     MtkWlanNativeIf *self = OSDynamicCast(MtkWlanNativeIf, owner);
     if (!self || !self->ops4 || !self->core) { *(int *)rc = -2; return kIOReturnSuccess; }
+    IOService *provider = self->ctl ? self->ctl->getProvider() : nullptr;
+    if (provider && provider->getProperty("MtkQueuedMac") == kOSBooleanTrue) {
+        // MT7902 queues the hardware update. Its worker holds joins/TX until firmware confirms it.
+        // Never wait for the radio while Apple's native/BSD gate is held.
+        *(int *)rc = -2;
+        return provider->callPlatformFunction("mtk-queue-mac-v1", false, mac, rc, nullptr, nullptr);
+    }
     *(int *)rc = self->ops4->set_mac(self->core, (const uint8_t *)mac);
     return kIOReturnSuccess;
 }

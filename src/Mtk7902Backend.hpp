@@ -50,6 +50,7 @@ struct Mtk7902Backend {
     uint32_t getResults(mtk_scan_result *out, uint32_t max);
     int getBss(uint32_t index, mtk_bss_info *out);
     int setMac(const uint8_t address[6]);
+    int queueMac(const uint8_t address[6]);
     int getLink(mtk_link_info *out);
     int getMac(uint8_t out[6]);
 };

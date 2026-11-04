@@ -3,6 +3,11 @@
 #include "MtkUserApi.h"
 #include <string.h>
 
+// A join's PMK mailbox must survive firmware polling while a private address is being applied.
+static inline uint32_t mtk7902_dispatch_commands(uint32_t pending, bool macBarrier) {
+    return macBarrier ? pending & ~2u : pending;
+}
+
 // Preserve the distinction between an AP rejection and no response. Neither is a wrong password.
 static inline uint32_t mtk7902_join_result(const char *stage) {
     if (!strncmp(stage, "scan", 4)) return MTK_JOIN_NOT_FOUND;

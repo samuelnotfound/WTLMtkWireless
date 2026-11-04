@@ -7,7 +7,6 @@
 #include "../experimental/MT7902Port/src/itlmt7902.hpp"
 #include "../experimental/MT7902Port/codec/mt7902_join_codec.h"
 #include <libkern/c++/OSData.h>
-#include <kern/clock.h>
 
 Mtk7902Backend *Mtk7902Backend::create(MtkWlan *owner) {
     auto *b = static_cast<Mtk7902Backend *>(IOMalloc(sizeof(Mtk7902Backend)));
@@ -151,10 +150,12 @@ void Mtk7902Backend::workerPoll() {
     uint32_t commands, serial;
     mtk_join_params request;
     IOLockLock(lock);
-    commands = stopping ? 0 : pending; pending = 0;
+    commands = stopping ? 0 : mtk7902_dispatch_commands(pending, macPending || macApplying);
+    pending &= ~commands;
     serial = requestSerial;
     commandBusy = (commands & 6) != 0;
-    request = joinRequest; bzero(&joinRequest, sizeof(joinRequest));
+    bzero(&request, sizeof(request));
+    if (commands & 2) { request = joinRequest; bzero(&joinRequest, sizeof(joinRequest)); }
     IOLockUnlock(lock);
     if (commands & 4) radio->ucDisconnect();
     if (commands & 8) {
@@ -360,30 +361,33 @@ void Mtk7902Backend::restoreMac() {
 }
 
 int Mtk7902Backend::setMac(const uint8_t address[6]) {
-    if (!address || (address[0] & 1) || !(address[0] | address[1] | address[2] | address[3] | address[4] | address[5])) return -1;
+    // Keep API v4's synchronous meaning for other frontends: refuse an unapplied change.
+    // Our native frontend uses the explicit queued extension below instead of sleeping on this gate.
+    if (!address) return -1;
     IOLockLock(lock);
-    if (!ready || stopping || macPending || macApplying) { IOLockUnlock(lock); return -2; }
-    if (!memcmp(mac, address, 6)) { IOLockUnlock(lock); return 0; }
-    memcpy(requestedMac, address, 6); macPending = true; macCancelled = false;
-    uint32_t serial = ++macSerial;
-    pending = 8; ++requestSerial; joinPending = false;
-    status.link_up = status.port_open = false; status.state = MTK_ST_IDLE;
-    bzero(&joinRequest, sizeof(joinRequest)); tx.clear(); rx.clear();
-    uint64_t deadline;
-    clock_interval_to_deadline(12, kSecondScale, &deadline);
-    while (!stopping && macCompleted != serial) {
-        int r = IOLockSleepDeadline(lock, &macCompleted, deadline, THREAD_UNINT);
-        if (r == THREAD_TIMED_OUT && macCompleted != serial) {
-            macCancelled = true;
-            if (!macApplying) { macPending = false; pending &= ~8u; }
-            IOLockUnlock(lock);
-            return -2;
-        }
-    }
-    int rc = stopping ? -2 : macResult;
-    if (!rc) memcpy(core->mac, mac, 6);
+    int rc = macReady && !macPending && !macApplying && !memcmp(mac, address, 6) ? 0 : -2;
     IOLockUnlock(lock);
     return rc;
+}
+
+int Mtk7902Backend::queueMac(const uint8_t address[6]) {
+    if (!address || (address[0] & 1) || !(address[0] | address[1] | address[2] | address[3] | address[4] | address[5])) return -1;
+    IOLockLock(lock);
+    if (!ready || stopping) { IOLockUnlock(lock); return -2; }
+    if (macPending || macApplying) {
+        int rc = !memcmp(requestedMac, address, 6) ? 0 : -2;
+        IOLockUnlock(lock); return rc;
+    }
+    if (!memcmp(mac, address, 6)) { IOLockUnlock(lock); return 0; }
+    memcpy(requestedMac, address, 6); macPending = true; macCancelled = false;
+    ++macSerial;
+    pending = 8; ++requestSerial; joinPending = false;
+    if (scanPending) scanFailed = true;
+    status.link_up = status.port_open = false; status.state = MTK_ST_IDLE;
+    bzero(&joinRequest, sizeof(joinRequest)); tx.clear(); rx.clear();
+    IOLockUnlock(lock);
+    core->setProperty("MtkMacPhase", "queued");
+    return 0; // queued intent; no association or user data can pass the worker's MAC barrier
 }
 
 void Mtk7902Backend::workerControl() {
@@ -405,7 +409,8 @@ void Mtk7902Backend::workerControl() {
     memcpy(address, requestedMac, 6); memcpy(previous, radio->mac, 6);
     IOLockUnlock(lock);
     // A safe supervisor boundary: the previous association has been torn down. Neither the Mtk gate nor
-    // a radio command lock is needed by this worker. The API v4 caller may wait while the firmware replies.
+    // a radio command lock is needed by this worker. Native/BSD callers never wait for the firmware.
+    core->setProperty("MtkMacPhase", "applying");
     IOLockLock(radio->cmdLock); radio->cmdBits &= ~itlmt7902::CMD_MAC_CHANGE; IOLockUnlock(radio->cmdLock);
     uint8_t dev[16];
     mt7902_encode_device_info(dev, sizeof(dev), previous); dev[8] = 0;
@@ -422,16 +427,23 @@ void Mtk7902Backend::workerControl() {
         rc = -2;
         IOLockLock(lock);
     } else {
-        // Commit and signal under the same lock as timeout cancellation. A caller must never receive
-        // refusal while a late worker silently commits the new address.
+        // Publish the confirmed hardware address before releasing a deferred join.
         memcpy(radio->mac, address, 6); radio->m3devReady = true;
         memcpy(mac, address, 6); macOverride = true;
     }
     macResult = rc; macCompleted = serial; macApplying = false;
+    if (rc) {
+        pending &= ~2u; bzero(&joinRequest, sizeof(joinRequest));
+        status.last_result = MTK_JOIN_ROC; status.want_active = false; ++status.join_failures;
+    }
     IOLockWakeup(lock, &macCompleted, false);
     IOLockUnlock(lock);
+    core->setProperty("MtkMacPhase", rc ? "failed" : "ready");
+    core->setNum("MtkMacResult", (uint32_t)rc);
     if (!rc) {
         radio->setProperty("IOMACAddress", address, 6);
         radio->setProperty("itlmt_mac_source", "native private address");
     }
+    if (rc) radio->ucDisconnect();
+    workerPoll(); // forward a deferred join before the supervisor can rejoin the old network
 }
