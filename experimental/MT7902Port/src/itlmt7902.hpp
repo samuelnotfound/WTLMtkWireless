@@ -443,14 +443,19 @@ private:
     void note(const char *fmt, uint32_t a = 0, uint32_t b = 0, uint32_t c = 0);
 
     // ---- runtime control: command mailbox, supervisor loop, status for the menu bar app (itlmt7902_uc.cpp) ----
-    enum { CMD_SCAN = 1, CMD_JOIN = 2, CMD_DISCONNECT = 4 };
+    enum { CMD_SCAN = 1, CMD_JOIN = 2, CMD_DISCONNECT = 4, CMD_MAC_CHANGE = 8 };
     // hasPmk: `pmk` is the ready pairwise master key (native Wi-Fi: userland's supplicant derived it), psk is empty then
     struct Net { char ssid[33]; char psk[72]; bool hasPmk; bool native; uint8_t pmk[32]; uint8_t bssid[6]; };
     IOLock *cmdLock = nullptr;
     volatile uint32_t cmdBits = 0;
     Net reqNet = {};                         // the network of the last join command (under cmdLock)
     uint32_t lastScanReqMs = 0;
-    bool cmdPending(uint32_t mask) const { return (__atomic_load_n(&cmdBits, __ATOMIC_ACQUIRE) & mask) != 0; }
+    bool cmdPending(uint32_t mask) const {
+#ifdef MTK_WITH_MT7902
+        if (mtkBridge && (mask & (CMD_JOIN | CMD_DISCONNECT))) mask |= CMD_MAC_CHANGE;
+#endif
+        return (__atomic_load_n(&cmdBits, __ATOMIC_ACQUIRE) & mask) != 0;
+    }
     uint32_t cmdTake(uint32_t mask, Net *join);
     Net candNets[4] = {};                    // candidates for the next m3Run1(), in priority order
     int candN = 0;

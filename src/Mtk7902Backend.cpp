@@ -82,7 +82,7 @@ void Mtk7902Backend::publish(bool networks) {
     status.version = MTK_USER_API_VERSION;
     status.scanning = __atomic_load_n(&radio->scanBusy, __ATOMIC_ACQUIRE) || (pending & 1);
     if (scanPending && status.scanning) scanObserved = true;
-    bool changing = commandBusy || (pending & 6) || radio->njState == ITL_NATIVE_CONNECTING;
+    bool changing = commandBusy || macPending || macApplying || (pending & 6) || radio->njState == ITL_NATIVE_CONNECTING;
     status.link_up = status.port_open = status.want_active && radio->m3linkUp && !radio->firmwareFault && !changing;
     status.state = status.link_up ? MTK_ST_CONNECTED : changing && status.want_active ? MTK_ST_JOINING :
                    status.scanning ? MTK_ST_SCANNING : MTK_ST_IDLE;
@@ -157,7 +157,11 @@ void Mtk7902Backend::workerPoll() {
     request = joinRequest; bzero(&joinRequest, sizeof(joinRequest));
     IOLockUnlock(lock);
     if (commands & 4) radio->ucDisconnect();
-    if (commands & 8) radio->ucDisconnect(); // MAC changes are applied only after the active attempt has unwound.
+    if (commands & 8) {
+        // Interrupt the active attempt without discarding the supervisor's wanted SSID/PMK. API v4
+        // promises to rejoin it after an address change if macOS has not supplied a replacement join.
+        IOLockLock(radio->cmdLock); radio->cmdBits |= itlmt7902::CMD_MAC_CHANGE; IOLockUnlock(radio->cmdLock);
+    }
     if (commands & 2) {
         ItlNativeJoin j = {};
         j.version = 1; j.ssidLen = request.ssid_len;
@@ -362,7 +366,7 @@ int Mtk7902Backend::setMac(const uint8_t address[6]) {
     if (!memcmp(mac, address, 6)) { IOLockUnlock(lock); return 0; }
     memcpy(requestedMac, address, 6); macPending = true; macCancelled = false;
     uint32_t serial = ++macSerial;
-    pending = 8; ++requestSerial; joinPending = false; status.want_active = false;
+    pending = 8; ++requestSerial; joinPending = false;
     status.link_up = status.port_open = false; status.state = MTK_ST_IDLE;
     bzero(&joinRequest, sizeof(joinRequest)); tx.clear(); rx.clear();
     uint64_t deadline;
@@ -393,7 +397,7 @@ void Mtk7902Backend::workerControl() {
     IOLockUnlock(lock);
     // A safe supervisor boundary: the previous association has been torn down. Neither the Mtk gate nor
     // a radio command lock is needed by this worker. The API v4 caller may wait while the firmware replies.
-    radio->ucDisconnect();
+    IOLockLock(radio->cmdLock); radio->cmdBits &= ~itlmt7902::CMD_MAC_CHANGE; IOLockUnlock(radio->cmdLock);
     uint8_t dev[16];
     mt7902_encode_device_info(dev, sizeof(dev), previous); dev[8] = 0;
     int rc = radio->m3Cmd(1, dev, sizeof(dev), "native dev(inactive)");
