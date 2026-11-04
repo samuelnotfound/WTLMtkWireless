@@ -390,7 +390,16 @@ void Mtk7902Backend::workerControl() {
     uint8_t address[6], previous[6];
     uint32_t serial;
     IOLockLock(lock);
-    if (stopping || !macPending || macCancelled) { IOLockUnlock(lock); return; }
+    if (stopping || !macPending || macCancelled) {
+        bool cancelled = macCancelled;
+        IOLockUnlock(lock);
+        if (cancelled) {
+            // A timed-out request can already have interrupted m3Run. Release that interrupt even
+            // when no firmware address update was started, so the wanted network can reconnect.
+            IOLockLock(radio->cmdLock); radio->cmdBits &= ~itlmt7902::CMD_MAC_CHANGE; IOLockUnlock(radio->cmdLock);
+        }
+        return;
+    }
     macApplying = true; macPending = false; serial = macSerial;
     pending &= ~8u;
     memcpy(address, requestedMac, 6); memcpy(previous, radio->mac, 6);
