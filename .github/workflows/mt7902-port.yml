@@ -68,9 +68,8 @@ jobs:
           lipo out/MtkWiFi7902.app/Contents/MacOS/MtkWiFi7902 -verify_arch x86_64
           python3 tools/package-mt7902.py
       - uses: actions/upload-artifact@v4
-        if: false # Native joins hard-hang user hardware; audit builds must not be offered for installation.
         with:
-          name: MtkWlan-MT7902-integrated
+          name: MtkWlan-MT7902-audit-kexts
           path: out/dist/*
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
