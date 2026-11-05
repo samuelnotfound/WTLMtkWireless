@@ -365,6 +365,9 @@ void itlmt7902::m3TxFree(const uint8_t *p, uint32_t len)
                 txFreeSeen = true;
                 stTxFwRetry += record.attempts ? record.attempts - 1 : 0;
                 if (record.status) stTxFwFail++;
+#ifdef MTK_WITH_MT7902
+                if (wtlEapolToken == id) wtlEapolCompletion = record.status ? -1 : 1;
+#endif
             } else txFreeUnmatched++;
         }
         if (ethStalled && stTxFree != freed0) { ethStalled = false; kick = true; }

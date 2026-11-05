@@ -33,6 +33,7 @@ struct M3TxOpt {
     int sn = -1;              // >= 0: sequence number chosen by the host (TXD3.SN_VALID)
     bool aggr = false;        // leave BA_DISABLE clear: the frame may be sent in an A-MPDU
     bool *full = nullptr;     // set: no staging slot / descriptor free, the caller keeps the frame (Ethernet output queue)
+    uint16_t *submittedToken = nullptr; // generation-qualified TXFREE token
 };
 
 struct itl_dma_buf {
@@ -254,11 +255,19 @@ private:
     IOLock *txLock = nullptr;
     uint32_t stRxData = 0, stRxEapol = 0, stRxEth = 0, stRxDrop = 0, stTx = 0, stTxFail = 0, stNote = 0;
     int  m3Handshake();
+#ifdef MTK_WITH_MT7902
+    int  m3WtlHandshake();
+    uint16_t wtlEapolToken = 0;
+    int wtlEapolCompletion = 0;
+    uint32_t wtlRocStarted = 0;
+    uint32_t wtlRocDuration = 0;
+    bool wtlGrantLive();
+#endif
     bool m3Eapol(const uint8_t *eapol, uint32_t len);
     int  m3Key(uint16_t wcid, bool pairwise, uint8_t keyId, const uint8_t *key, uint8_t keyLen);
     bool m3RxData(const uint8_t *p, uint32_t len);
     bool m3TxData(const uint8_t *da, uint16_t ethertype, const uint8_t *payload, uint32_t plen, bool protect,
-                  bool *full = nullptr);
+                  bool *full = nullptr, uint16_t *submittedToken = nullptr);
     void m3Note(const char *dir, const uint8_t *eth, uint32_t len);
     // Post-mortem: the last Ethernet frames in either direction and one line of chip / ring / PCIe state, published as the
     // properties "wifi-frames" and "wifi-postmortem" when the firmware stops answering. chipRecover() redoes M1 + M2.

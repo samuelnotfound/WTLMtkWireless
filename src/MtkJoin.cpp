@@ -17,6 +17,7 @@
 #include "MtkWlan.hpp"
 #include "Mtk7902Backend.hpp"
 #include "MtkCrypto.h"
+#include "MtkAssocFrame.h"
 
 namespace {
 constexpr uint8_t UNI_BSS_INFO_UPDATE = 0x02, UNI_STA_REC_UPDATE = 0x03, UNI_EDCA_UPDATE = 0x04, UNI_ROC = 0x27;
@@ -73,8 +74,8 @@ const char *resultName(uint32_t r) {
 
 // While waiting for an auth / assoc response: a management frame from the AP to us with fc byte 0 == wantFc
 void MtkWlan::noteMgmt(const uint8_t *p, uint32_t len) {
-    if (!wantFc || mgmtLen || len < 32 + 24) return;
-    for (uint32_t off = 32; off + 24 <= len && off < 224; off++) {
+    if (!wantFc || mgmtLen || len < 32 + 30) return;
+    for (uint32_t off = 32; off + 30 <= len && off < 224; off++) {
         if (p[off] != wantFc) continue;
         if (memcmp(p + off + 4, mac, 6) != 0 || memcmp(p + off + 10, tgtBssid, 6) != 0) continue;
         uint32_t n = len - off;
@@ -404,12 +405,7 @@ void MtkWlan::hwPrep() {
 // ht the HT and VHT capabilities of the MT7925 (mt7925/init.c, 2 streams, no beamforming, no A-MSDU above
 // 3839 bytes) plus the WMM information element.
 uint8_t *MtkWlan::assocIes(uint8_t *p, bool ht) {
-    uint16_t cap = tgtCh > 14 ? 0x0401 : 0x0421;
-    if (tgtRsn) cap |= 0x0010;                  // Privacy
-    put16(p, cap); p += 2;
-    put16(p, 10); p += 2;
-    uint8_t sl = tgtSsidLen;
-    *p++ = 0; *p++ = sl; memcpy(p, tgtSsid, sl); p += sl;
+    p = mtk_assoc_prefix(p, tgtCh <= 14, tgtRsn, tgtSsid, tgtSsidLen);
     static const uint8_t rates5[8] = {0x8c, 0x12, 0x98, 0x24, 0xb0, 0x48, 0x60, 0x6c};
     static const uint8_t rates2[8] = {0x82, 0x84, 0x8b, 0x96, 0x0c, 0x12, 0x18, 0x24};
     static const uint8_t ext2[4] = {0x30, 0x48, 0x60, 0x6c};
@@ -534,13 +530,17 @@ void MtkWlan::joinService() {
         return;
     case 2: {                                   // authentication
         if (mgmtLen) {
-            uint16_t alg = le16(mgmt + 24), seq = le16(mgmt + 26), st = le16(mgmt + 28);
+            MtkAuthResponse reply{};
+            const bool parsed = mgmtLen >= 24 && mtk_auth_response(mgmt + 24, mgmtLen - 24, reply);
             mgmtLen = 0;
-            wantFc = 0;
-            setNum("MtkW5AuthResp", (uint32_t)alg << 16 | (uint32_t)seq << 8 | st);
-            if (alg == 0 && seq == 2 && st == 0) { joinState = 3; joinTries = 0; sendAssoc(); }
-            else joinFail(MTK_JOIN_AUTH_REJECT);
-            return;
+            if (parsed) {
+                wantFc = 0;
+                setNum("MtkW5AuthResp", (uint32_t)reply.algorithm << 16 |
+                    (uint32_t)reply.transaction << 8 | reply.status);
+                if (reply.accepted()) { joinState = 3; joinTries = 0; sendAssoc(); }
+                else joinFail(MTK_JOIN_AUTH_REJECT);
+                return;
+            }
         }
         if ((int32_t)(ticks - joinPhaseEnd) >= 0) {
             if (joinTries < JOIN_TRIES) sendAuth();
@@ -550,17 +550,19 @@ void MtkWlan::joinService() {
     }
     case 3: {                                   // association
         if (mgmtLen) {
-            uint16_t st = le16(mgmt + 26), a = (uint16_t)(le16(mgmt + 28) & 0x3fff);
+            MtkAssocResponse reply{};
+            const bool parsed = mgmtLen >= 24 && mtk_assoc_response(mgmt + 24, mgmtLen - 24, reply);
             mgmtLen = 0;
+            if (!parsed) return;
             wantFc = 0;
-            if (joinHtPass) setNum("MtkW8AssocHtStatus", st);
-            setNum("MtkW5AssocStatus", st);
-            if (st) {
+            if (joinHtPass) setNum("MtkW8AssocHtStatus", reply.status);
+            setNum("MtkW5AssocStatus", reply.status);
+            if (!reply.accepted()) {
                 if (joinHtPass) { joinHtPass = false; joinTries = 0; sendAssoc(); return; }   // legacy retry
                 joinFail(MTK_JOIN_ASSOC_REJECT);
                 return;
             }
-            aid = a;
+            aid = reply.aid;
             htActive = joinHtPass;
             vhtActive = joinHtPass && apVht;
             setNum("MtkW5Aid", aid);

@@ -107,6 +107,7 @@ bool itlmt7902::m3Tx(const uint8_t *frame, uint32_t len, uint8_t type,
     txData.head = (txData.head + 1) % txData.n;
     barrier();
     wr(txData.regs + Q_CPU_IDX, (uint32_t)txData.head);
+    if (o.submittedToken) *o.submittedToken = token;
     // Payload ownership ends at TXFREE, not at DMA descriptor consumption.
     return true;
 }

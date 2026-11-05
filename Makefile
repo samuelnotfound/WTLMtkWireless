@@ -43,7 +43,7 @@ out/obj/%.cpp.o: src/%.cpp src/*.hpp src/*.h
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-out/obj/%.cpp.o: experimental/MT7902Port/src/%.cpp experimental/MT7902Port/src/*.h experimental/MT7902Port/src/*.hpp src/Mtk7902Backend.hpp
+out/obj/%.cpp.o: experimental/MT7902Port/src/%.cpp experimental/MT7902Port/src/*.h experimental/MT7902Port/src/*.hpp src/Mtk7902Backend.hpp src/MtkAssocFrame.h src/MtkSupp.h src/MtkCrypto.h
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 

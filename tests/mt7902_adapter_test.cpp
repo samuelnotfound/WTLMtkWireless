@@ -1,10 +1,29 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 #include "../src/Mtk7902Protocol.h"
 #include "../src/Mtk7902Queue.h"
+#include "../src/MtkAssocFrame.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 int main() {
+    const uint8_t auth[] = {0, 0, 2, 0, 0, 0};
+    MtkAuthResponse authReply{};
+    assert(!mtk_auth_response(auth, 5, authReply));
+    assert(mtk_auth_response(auth, sizeof(auth), authReply) && authReply.accepted());
+    uint8_t assoc[] = {0x31, 0x04, 0, 0, 0x87, 0xc1};
+    MtkAssocResponse assocReply{};
+    assert(!mtk_assoc_response(assoc, 5, assocReply));
+    assert(mtk_assoc_response(assoc, sizeof(assoc), assocReply));
+    assert(assocReply.aid == 391 && assocReply.accepted());
+    assoc[2] = 17;
+    assert(mtk_assoc_response(assoc, sizeof(assoc), assocReply));
+    assert(assocReply.status == 17 && !assocReply.accepted());
+    assoc[2] = 0; assoc[4] = 0; assoc[5] = 0xc0;
+    assert(mtk_assoc_response(assoc, sizeof(assoc), assocReply) && !assocReply.accepted());
+    uint8_t request[9];
+    const uint8_t expected[] = {0x31, 0x04, 10, 0, 0, 3, 'A', 'P', '1'};
+    assert(mtk_assoc_prefix(request, true, true, "AP1", 3) == request + sizeof(request));
+    assert(memcmp(request, expected, sizeof(expected)) == 0);
     assert(mtk7902_dispatch_commands(2, true) == 0); // keep join/key until MAC confirmation
     assert(mtk7902_dispatch_commands(10, true) == 8); // dispatch MAC interrupt, preserve join
     assert(mtk7902_dispatch_commands(2, false) == 2); // release join after confirmation

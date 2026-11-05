@@ -12,6 +12,11 @@
 #include "itl_wpa.h"
 #include "../codec/mt7902_data_codec.h"
 #include "../codec/mt7902_join_codec.h"
+#ifdef MTK_WITH_MT7902
+#include "MtkSupp.h"
+#include "MtkCrypto.h"
+#include "MtkAssocFrame.h"
+#endif
 
 #include <string.h>
 #include <stdarg.h>
@@ -163,6 +168,20 @@ void itlmt7902::m3Event(const uint8_t *ev, uint32_t len)
         uint16_t tag = (uint16_t)(ev[40] | (ev[41] << 8));
         uint16_t tl = (uint16_t)(ev[42] | (ev[43] << 8));
         if (tag != 0 || tl < 20 || len < 40u + tl || ev[44] != M3_BSS_IDX || ev[45] != rocTok) return;
+#ifdef MTK_WITH_MT7902
+        if (mtkBridge && ev[46] == 0) {
+            const uint32_t interval = le32(ev + 56);
+            if (ev[47] != tgtCh || ev[49] != (tgtCh > 14 ? 2 : 1) ||
+                ev[50] != 0 || ev[51] != tgtCh || ev[52] != 0 ||
+                ev[53] != 0 || interval < 50) {
+                m3log("WTL rejected ROC grant ch=%u band=%u width=%u interval=%u",
+                    ev[47], ev[49], ev[50], interval);
+                return;
+            }
+            wtlRocStarted = nowMs();
+            wtlRocDuration = interval > 5000 ? 5000 : interval;
+        }
+#endif
         rocStatus = ev[46]; rocGrant = true;
         m3log("roc grant bss=%u tok=%u status=%u", ev[44], ev[45], ev[46]);
     }
@@ -536,6 +555,9 @@ int itlmt7902::m3StaRemove()
 // ---------------------------------------------------------------------------------------------
 int itlmt7902::m3Roc(bool acquire)
 {
+#ifdef MTK_WITH_MT7902
+    wtlRocDuration = 0;
+#endif
     uint8_t req[4 + 24];
     bzero(req, sizeof(req));
     uint8_t *t = req + 4;
@@ -585,6 +607,15 @@ struct M3Lock {
 // after a correlated ACK. Buffers remain owned until TXFREE, even on timeout.
 bool itlmt7902::m3Xchg(const uint8_t *frame, uint32_t len, uint8_t subtype, uint8_t wantFc)
 {
+    const auto cancelled = [this]() {
+        if (shouldStop() || firmwareFault || cmdPending(CMD_JOIN | CMD_DISCONNECT))
+            return true;
+#ifdef MTK_WITH_MT7902
+        return mtkBridge && !wtlGrantLive();
+#else
+        return false;
+#endif
+    };
     uint32_t raw0[32]; memcpy(raw0,rxPacketTypes,sizeof(raw0));
     const uint32_t txsBad0=txsRejected, txsOther0=txsFiltered;
     const uint32_t freeBad0=txFreeRejected, freeOther0=txFreeUnmatched;
@@ -601,7 +632,7 @@ bool itlmt7902::m3Xchg(const uint8_t *frame, uint32_t len, uint8_t subtype, uint
     m3rxLen = 0;
     m3wantFc = wantFc;
     bool got = false;
-    for (int attempt = 1; attempt <= 3 && !got && !shouldStop() && !firmwareFault; attempt++) {
+    for (int attempt = 1; attempt <= 3 && !got && !cancelled(); attempt++) {
         if (nextMgmtPid>126) {
             // Do not alias delayed reports after PID wrap. Recovery quiesces
             // DMA and reloads firmware before the PID range is reused.
@@ -614,9 +645,9 @@ bool itlmt7902::m3Xchg(const uint8_t *frame, uint32_t len, uint8_t subtype, uint
         if (ok) queued++;
         mgmtWait.start(nowMs(),options.status_pid);
         m3log("tx %02x len=%u #%d pid=%u %s", frame[0], len, attempt,options.status_pid,ok ? "queued" : "FAILED");
-        if (ok) while (!mgmtWait.expired(nowMs()) && !m3rxLen && !shouldStop() && !firmwareFault) m3Pump(1);
+        if (ok) while (!mgmtWait.expired(nowMs()) && !m3rxLen && !cancelled()) m3Pump(1);
         mgmtWait.stop();
-        got = m3rxLen != 0;
+        got = m3rxLen != 0 && !cancelled();
     }
     m3wantFc = 0;
     char rawSummary[640]; size_t rawLength=0;
@@ -690,6 +721,16 @@ int itlmt7902::m3Auth()
         m3Postmortem("auth-timeout");
         return ITL_TIMEOUT;
     }
+#ifdef MTK_WITH_MT7902
+    if (mtkBridge) {
+        MtkAuthResponse reply{};
+        if (m3rxLen < 30 || !mtk_auth_response(m3rx + 24, m3rxLen - 24, reply))
+            return ITL_EINVAL;
+        m3log("WTL auth algorithm=%u transaction=%u status=%u",
+            reply.algorithm, reply.transaction, reply.status);
+        return reply.accepted() ? 0 : ITL_EIO;
+    }
+#endif
     uint16_t alg = (uint16_t)(m3rx[24] | (m3rx[25] << 8)), seq = (uint16_t)(m3rx[26] | (m3rx[27] << 8)),
              st = (uint16_t)(m3rx[28] | (m3rx[29] << 8));
     m3log("auth resp alg=%u seq=%u status=%u", alg, seq, st);
@@ -704,10 +745,18 @@ int itlmt7902::m3Assoc()
     // 2.4 GHz: advertise the CCK rates the AP's basic set usually contains also on the legacy path (an AP whose basic rates are
     // 1/2/5.5/11 refuses a station that offers OFDM only)
     bool g2 = tgtCh <= 14;
-    put16(p, g2 ? 0x0431 : 0x0411); p += 2;                     // ESS | PRIVACY | short slot (| short preamble on 2.4 GHz)
-    put16(p, 10); p += 2;                                        // listen interval
-    uint8_t sl = (uint8_t)strlen(m3ssid);
-    *p++ = 0; *p++ = sl; memcpy(p, m3ssid, sl); p += sl;
+#ifdef MTK_WITH_MT7902
+    if (mtkBridge) {
+        p = mtk_assoc_prefix(p, g2 && apCck, true, m3ssid,
+            static_cast<uint8_t>(strlen(m3ssid)));
+    } else
+#endif
+    {
+        put16(p, g2 ? 0x0431 : 0x0411); p += 2;                 // ESS | Privacy | short slot
+        put16(p, 10); p += 2;                                    // listen interval
+        uint8_t sl = (uint8_t)strlen(m3ssid);
+        *p++ = 0; *p++ = sl; memcpy(p, m3ssid, sl); p += sl;
+    }
     static const uint8_t rates[8] = {0x8c, 0x12, 0x98, 0x24, 0xb0, 0x48, 0x60, 0x6c};
     static const uint8_t rates2g[8] = {0x82, 0x84, 0x8b, 0x96, 0x0c, 0x12, 0x18, 0x24};     // 1, 2, 5.5, 11 (CCK), 6, 9, 12, 18
     static const uint8_t ext2g[4] = {0x30, 0x48, 0x60, 0x6c};                               // 24, 36, 48, 54
@@ -715,7 +764,15 @@ int itlmt7902::m3Assoc()
     if (g2) { *p++ = 50; *p++ = 4; memcpy(p, ext2g, 4); p += 4; }
     static const uint8_t rsn[22] = {0x30, 0x14, 0x01, 0x00, 0x00, 0x0f, 0xac, 0x04, 0x01, 0x00, 0x00, 0x0f, 0xac, 0x04,
                                     0x01, 0x00, 0x00, 0x0f, 0xac, 0x02, 0x00, 0x00};
-    memcpy(p, rsn, sizeof(rsn)); p += sizeof(rsn);
+#ifdef MTK_WITH_MT7902
+    if (mtkBridge) {
+        // The supplicant's message 2 must use exactly the advertised RSN IE.
+        p += mtk_rsn_ie_psk(p, 4);
+    } else
+#endif
+    {
+        memcpy(p, rsn, sizeof(rsn)); p += sizeof(rsn);
+    }
     if (fastActive) {
         p += mt7902_encode_ht20(p,(size_t)(f+sizeof(f)-p),apCaps.mcsRx[0]);
         if (apCaps.vht) p += itl_caps_build_vht(p, fastAllow160);
@@ -724,6 +781,17 @@ int itlmt7902::m3Assoc()
         memcpy(p, wmm, sizeof(wmm)); p += sizeof(wmm);
     }
     if (!m3Xchg(f, (uint32_t)(p - f), 0, 0x10)) return ITL_TIMEOUT;
+#ifdef MTK_WITH_MT7902
+    if (mtkBridge) {
+        MtkAssocResponse reply{};
+        if (m3rxLen < 30 || !mtk_assoc_response(m3rx + 24, m3rxLen - 24, reply))
+            return ITL_EINVAL;
+        m3log("WTL association status=%u aid=%u", reply.status, reply.aid);
+        if (!reply.accepted()) return ITL_EIO;
+        m3aid = reply.aid;
+        return 0;
+    }
+#endif
     uint16_t st = (uint16_t)(m3rx[26] | (m3rx[27] << 8)), aid = (uint16_t)((m3rx[28] | (m3rx[29] << 8)) & 0x3fff);
     m3log("assoc resp status=%u aid=%u", st, aid);
     if (st) return ITL_EIO;
@@ -865,6 +933,17 @@ int itlmt7902::m3Run1()
     if (rc!=ITL_TIMEOUT) m3Publish(rc ? "auth-fail" : "auth-ok");
     if (!rc) {
         m3reachedAssoc = true;
+#ifdef MTK_WITH_MT7902
+        if (mtkBridge) {
+            // The first EAPOL frame can arrive during the association/STA
+            // commands. Arm reception before their MCU waits poll the rings.
+            m3eapolLen = m3eapolHead = m3eapolTail = m3eapolDrops = 0;
+            bzero(m3eapolQueue, sizeof(m3eapolQueue));
+            m3hsApLeave = false;
+            m3hsApReason = 0;
+            m3dataOn = m3wantEapol = true;
+        }
+#endif
         rc = m3Assoc();
         m3Publish(rc==ITL_TIMEOUT?"assoc-timeout-fail":rc?"assoc-fail":"assoc-ok");
     }
@@ -873,10 +952,17 @@ int itlmt7902::m3Run1()
     if (!rc) {
         rc=m3Bss(true);
         if (!rc) rc=m3Sta(2,false,m3aid);
-        if (!rc) rc=m3Handshake();
-        m3wantEapol = false;
+        if (!rc) {
+#ifdef MTK_WITH_MT7902
+            rc = mtkBridge ? m3WtlHandshake() : m3Handshake();
+#else
+            rc = m3Handshake();
+#endif
+        }
         m3Publish(rc ? "hs-fail" : "hs-ok");
     }
+    m3wantEapol = false;
+    if (rc) m3dataOn = false;
     m3Roc(false);
     bzero(m3pmk, sizeof(m3pmk));
     if (!rc) {
@@ -1163,7 +1249,8 @@ uint32_t itlmt7902::m3RxAmsdu(const uint8_t *b, uint32_t n, uint8_t ai, bool reo
 // the hardware once the keys are installed). EAPOL goes to the handshake, everything else to the Ethernet interface.
 // The header sits after up to 32 + 4 x 16 + 96 bytes of RXD groups (mt7902_mac_fill_rx), so look for it from byte 32 on.
 
-bool itlmt7902::m3TxData(const uint8_t *da, uint16_t ethertype, const uint8_t *payload, uint32_t plen, bool protect, bool *full)
+bool itlmt7902::m3TxData(const uint8_t *da, uint16_t ethertype, const uint8_t *payload, uint32_t plen, bool protect,
+                       bool *full, uint16_t *submittedToken)
 {
     uint8_t f[34 + 1560];
     if (plen > 1560) return false;
@@ -1181,6 +1268,7 @@ bool itlmt7902::m3TxData(const uint8_t *da, uint16_t ethertype, const uint8_t *p
     o.protect = protect;
     o.rateAdapt = ra;
     o.full = full;
+    o.submittedToken = submittedToken;
     if (ra) o.qidx = 1; // Connac2 AC_BE mapping applies before TX Block Ack too.
     uint16_t sn = txSn;
     if (ra && lvl >= 3) {
@@ -1257,6 +1345,118 @@ bool itlmt7902::m3EapolNext()
     bzero(&r, sizeof(r));
     return true;
 }
+
+#ifdef MTK_WITH_MT7902
+bool itlmt7902::wtlGrantLive()
+{
+    return wtlRocDuration && nowMs() - wtlRocStarted < wtlRocDuration;
+}
+
+int itlmt7902::m3WtlHandshake()
+{
+    struct Exchange {
+        itlmt7902 *radio;
+        mtk_supp supplicant;
+        uint8_t pairwise[16], group[16], groupId;
+        bool pairwisePending, groupPending;
+    };
+    auto *exchange = static_cast<Exchange *>(IOMalloc(sizeof(Exchange)));
+    if (!exchange) return ITL_EIO;
+    bzero(exchange, sizeof(*exchange));
+    exchange->radio = this;
+
+    const mtk_supp_ops ops = {
+        exchange,
+        [](void *context, const uint8_t *frame, size_t length, int protect) -> int {
+            auto *state = static_cast<Exchange *>(context);
+            auto *radio = state->radio;
+            // This session handles the initial pairwise exchange. Stop before
+            // a rekey can overwrite an installed key without replay state.
+            if (protect || length > MTK_EAPOL_MAX) return -1;
+            radio->wtlEapolToken = 0;
+            radio->wtlEapolCompletion = 0;
+            return radio->m3TxData(radio->tgtBssid, 0x888e, frame,
+                static_cast<uint32_t>(length), false, nullptr, &radio->wtlEapolToken) ? 0 : -1;
+        },
+        [](void *context, const uint8_t key[16]) -> int {
+            auto *state = static_cast<Exchange *>(context);
+            memcpy(state->pairwise, key, sizeof(state->pairwise));
+            state->pairwisePending = true;
+            return 0;
+        },
+        [](void *context, int id, const uint8_t *key, size_t length, const uint8_t[8]) -> int {
+            auto *state = static_cast<Exchange *>(context);
+            if (id < 0 || id > 3 || length != sizeof(state->group)) return -1;
+            memcpy(state->group, key, length);
+            state->groupId = static_cast<uint8_t>(id);
+            state->groupPending = true;
+            return 0;
+        },
+        [](void *, uint8_t *bytes, size_t length) { read_random(bytes, length); }
+    };
+    uint8_t ownRsn[22];
+    const size_t ownLength = mtk_rsn_ie_psk(ownRsn, 4);
+    mtk_supp_init(&exchange->supplicant, &ops, m3pmk, tgtBssid, mac,
+        ownRsn, ownLength, apRsn, apRsnLen);
+    wtlEapolToken = 0;
+    wtlEapolCompletion = 0;
+    setProperty("wifi-handshake", "wtl-wpa2");
+    const auto cancelled = [this]() {
+        return shouldStop() || firmwareFault || m3hsApLeave || !wtlGrantLive() ||
+            cmdPending(CMD_JOIN | CMD_DISCONNECT);
+    };
+    int result = ITL_TIMEOUT;
+    const uint32_t started = nowMs();
+    while (!cancelled() && nowMs() - started < 10000) {
+        m3PumpOnce();
+        if (cancelled()) break;
+        if (!m3EapolNext()) {
+            IOSleep(1);
+            continue;
+        }
+        const int status = mtk_supp_rx(&exchange->supplicant, m3eapol, m3eapolLen);
+        bzero(m3eapol, sizeof(m3eapol));
+        if (status == MTK_SUPP_ERR_IE || status == MTK_SUPP_ERR_INSTALL ||
+            status == MTK_SUPP_ERR_SEND) {
+            result = ITL_EIO;
+            break;
+        }
+        if (status != MTK_SUPP_OK_DONE) continue;
+        if (!exchange->pairwisePending || !exchange->groupPending || !wtlEapolToken) {
+            result = ITL_EIO;
+            break;
+        }
+        // Wait for message 4's actual completion before installing the PTK.
+        // A timeout leaves DMA ownership with TXFREE or hardware teardown.
+        const uint32_t sent = nowMs();
+        while (!wtlEapolCompletion && !cancelled() && nowMs() - sent < 250) {
+            m3PumpOnce();
+            IOSleep(1);
+        }
+        if (cancelled() || wtlEapolCompletion != 1) {
+            result = ITL_EIO;
+            break;
+        }
+        m3cipher = 4;
+        result = m3Bss(true);
+        if (!result && !cancelled())
+            result = m3Key(M3_AP_WCID, true, 0, exchange->pairwise, 16);
+        if (!result && !cancelled())
+            result = m3Key(M3_BMC_WCID, false, exchange->groupId, exchange->group, 16);
+        if (cancelled()) result = ITL_EIO;
+        break;
+    }
+    m3log("WTL WPA2 m1=%u m2=%u m3=%u m4=%u rxerr=%d txfree=%d rc=%d",
+        exchange->supplicant.m1, exchange->supplicant.m2, exchange->supplicant.m3,
+        exchange->supplicant.m4, exchange->supplicant.last_error, wtlEapolCompletion, result);
+    setProperty("wifi-handshake", result ? "wtl-wpa2-failed" : "wtl-wpa2-keys-installed");
+    wtlEapolToken = 0;
+    wtlEapolCompletion = 0;
+    mtk_zero(exchange, sizeof(*exchange));
+    IOFree(exchange, sizeof(*exchange));
+    return result;
+}
+#endif
 
 int itlmt7902::m3Handshake()
 {
